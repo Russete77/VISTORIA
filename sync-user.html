@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sincronizar Usuário - VistorIA Pro</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .card {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      margin-top: 0;
+    }
+    button {
+      background: #0070f3;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 20px;
+    }
+    button:hover {
+      background: #0051cc;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    #result {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 6px;
+      display: none;
+    }
+    .success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    .info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+    pre {
+      background: #f8f9fa;
+      padding: 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🔄 Sincronizar Usuário</h1>
+    <p>Esta ferramenta sincroniza seu usuário do Clerk para o Supabase manualmente.</p>
+    <p><strong>Use quando:</strong> O webhook do Clerk falhar e você não conseguir carregar propriedades.</p>
+
+    <button id="syncBtn" onclick="syncUser()">Sincronizar Usuário</button>
+
+    <div id="result"></div>
+  </div>
+
+  <script>
+    async function syncUser() {
+      const btn = document.getElementById('syncBtn');
+      const result = document.getElementById('result');
+
+      btn.disabled = true;
+      btn.textContent = 'Sincronizando...';
+      result.style.display = 'none';
+
+      try {
+        const response = await fetch('/api/user', { method: 'POST' });
+        const data = await response.json();
+
+        result.style.display = 'block';
+
+        if (response.ok) {
+          if (data.synced) {
+            result.className = 'success';
+            result.innerHTML = `
+              <strong>✅ Sucesso!</strong>
+              <p>${data.message}</p>
+              <pre>${JSON.stringify(data.user, null, 2)}</pre>
+              <p style="margin-top: 15px;">
+                <a href="/dashboard/properties" style="color: #155724; text-decoration: underline;">
+                  Ir para Propriedades →
+                </a>
+              </p>
+            `;
+          } else {
+            result.className = 'info';
+            result.innerHTML = `
+              <strong>ℹ️ Informação</strong>
+              <p>${data.message}</p>
+              <p>Seu usuário já existe no Supabase. Se ainda está com problemas, verifique os logs do servidor.</p>
+            `;
+          }
+        } else {
+          result.className = 'error';
+          result.innerHTML = `
+            <strong>❌ Erro</strong>
+            <p>${data.error}</p>
+            ${data.details ? `<pre>${JSON.stringify(data.details, null, 2)}</pre>` : ''}
+          `;
+        }
+      } catch (error) {
+        result.style.display = 'block';
+        result.className = 'error';
+        result.innerHTML = `
+          <strong>❌ Erro de Conexão</strong>
+          <p>${error.message}</p>
+          <p>Certifique-se de que o servidor está rodando em http://localhost:3002</p>
+        `;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Sincronizar Usuário';
+      }
+    }
+  </script>
+</body>
+</html>

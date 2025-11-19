@@ -1,0 +1,463 @@
+'use client'
+
+import { useState, useEffect, Suspense } from 'react'
+import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { ClipboardCheck, ArrowLeft, ArrowRight, Check, Loader2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Breadcrumbs } from '@/components/ui/breadcrumbs'
+import { Card } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
+import { useProperties } from '@/hooks/use-properties'
+import { toast } from 'sonner'
+
+/**
+ * New Inspection Page - VistorIA Pro
+ * Multi-step form for creating a new inspection
+ * Steps: 1. Select Property -> 2. Inspection Type -> 3. Initial Data
+ */
+
+interface FormData {
+  propertyId: string
+  inspectionType: 'move_in' | 'move_out' | 'periodic' | ''
+  inspectorName: string
+  tenantName: string
+  landlordName: string
+  scheduledDate: string
+  notes: string
+}
+
+const inspectionTypes = [
+  {
+    value: 'move_in',
+    label: 'Vistoria de Entrada',
+    description: 'Registro do estado do imóvel no início da locação',
+  },
+  {
+    value: 'move_out',
+    label: 'Vistoria de Saída',
+    description: 'Comparação do estado atual com o inicial',
+  },
+  {
+    value: 'periodic',
+    label: 'Vistoria Periódica',
+    description: 'Verificação regular da condição do imóvel',
+  },
+]
+
+function NewInspectionForm() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const preSelectedProperty = searchParams?.get('property')
+
+  const { properties, isLoading: isLoadingProperties } = useProperties()
+  const [currentStep, setCurrentStep] = useState(1)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [formData, setFormData] = useState<FormData>({
+    propertyId: preSelectedProperty || '',
+    inspectionType: '',
+    inspectorName: '',
+    tenantName: '',
+    landlordName: '',
+    scheduledDate: new Date().toISOString().split('T')[0],
+    notes: '',
+  })
+
+  const totalSteps = 3
+
+  const updateFormData = (field: keyof FormData, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const canProceedFromStep = (step: number): boolean => {
+    switch (step) {
+      case 1:
+        return !!formData.propertyId
+      case 2:
+        return !!formData.inspectionType
+      case 3:
+        return !!formData.inspectorName && !!formData.scheduledDate
+      default:
+        return false
+    }
+  }
+
+  const handleNext = () => {
+    if (canProceedFromStep(currentStep) && currentStep < totalSteps) {
+      setCurrentStep(currentStep + 1)
+    }
+  }
+
+  const handlePrev = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1)
+    }
+  }
+
+  const handleSubmit = async () => {
+    setIsSubmitting(true)
+
+    try {
+      // Format the date to ISO 8601
+      const scheduledDateTime = new Date(formData.scheduledDate).toISOString()
+
+      const response = await fetch('/api/inspections', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          property_id: formData.propertyId,
+          type: formData.inspectionType,
+          inspector_name: formData.inspectorName,
+          tenant_name: formData.tenantName || null,
+          landlord_name: formData.landlordName || null,
+          scheduled_date: scheduledDateTime,
+          notes: formData.notes || null,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        if (response.status === 402) {
+          toast.error('Créditos insuficientes', {
+            description: 'Você precisa comprar mais créditos para criar vistorias.',
+          })
+          return
+        }
+        throw new Error(data.error || 'Failed to create inspection')
+      }
+
+      toast.success('Vistoria criada com sucesso!')
+      router.push(`/dashboard/inspections/${data.inspection.id}`)
+    } catch (error) {
+      console.error('Error creating inspection:', error)
+      toast.error('Erro ao criar vistoria', {
+        description: error instanceof Error ? error.message : 'Tente novamente',
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  if (isLoadingProperties) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="max-w-3xl mx-auto space-y-6 sm:space-y-8 px-4 sm:px-0">
+      {/* Breadcrumbs */}
+      <Breadcrumbs
+        items={[
+          { label: 'Vistorias', href: '/dashboard/inspections', icon: <ClipboardCheck className="h-3.5 w-3.5" /> },
+          { label: 'Nova Vistoria' },
+        ]}
+      />
+
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold text-neutral-900 mb-2">
+          Nova Vistoria
+        </h1>
+        <p className="text-sm sm:text-base text-neutral-600">
+          Preencha as informações para criar uma nova vistoria
+        </p>
+      </div>
+
+      {/* Progress Steps */}
+      <div className="flex items-center justify-between overflow-x-auto pb-2">
+        {[1, 2, 3].map((step) => {
+          const isCompleted = step < currentStep
+          const isCurrent = step === currentStep
+          const stepLabels = ['Imóvel', 'Tipo', 'Dados']
+
+          return (
+            <div key={step} className="flex items-center flex-1">
+              <div className="flex flex-col items-center min-w-[80px]">
+                <div
+                  className={`
+                    flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full
+                    font-semibold transition-all text-sm sm:text-base
+                    ${
+                      isCompleted
+                        ? 'bg-primary-600 text-white'
+                        : isCurrent
+                        ? 'bg-primary-100 text-primary-700 ring-2 sm:ring-4 ring-primary-200'
+                        : 'bg-neutral-200 text-neutral-600'
+                    }
+                  `}
+                >
+                  {isCompleted ? (
+                    <Check className="h-4 w-4 sm:h-5 sm:w-5" />
+                  ) : (
+                    <span>{step}</span>
+                  )}
+                </div>
+                <span
+                  className={`
+                    mt-2 text-xs sm:text-sm font-medium whitespace-nowrap
+                    ${isCurrent ? 'text-primary-700' : 'text-neutral-600'}
+                  `}
+                >
+                  {stepLabels[step - 1]}
+                </span>
+              </div>
+              {step < totalSteps && (
+                <div
+                  className={`
+                    flex-1 h-1 mx-4 rounded
+                    ${isCompleted ? 'bg-primary-600' : 'bg-neutral-200'}
+                  `}
+                />
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Form Steps */}
+      <Card className="p-4 sm:p-6 md:p-8">
+        {/* Step 1: Select Property */}
+        {currentStep === 1 && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-xl font-semibold text-neutral-900 mb-2">
+                Selecione o Imóvel
+              </h2>
+              <p className="text-sm text-neutral-600">
+                Escolha o imóvel que será vistoriado
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <Label htmlFor="property">Imóvel *</Label>
+              <Select
+                value={formData.propertyId}
+                onValueChange={(value) => updateFormData('propertyId', value)}
+              >
+                <SelectTrigger id="property">
+                  <SelectValue placeholder="Selecione um imóvel" />
+                </SelectTrigger>
+                <SelectContent>
+                  {properties.map((property) => (
+                    <SelectItem key={property.id} value={property.id}>
+                      <div>
+                        <p className="font-medium">{property.name}</p>
+                        <p className="text-xs text-neutral-500">
+                          {property.address}
+                        </p>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {properties.length === 0 && (
+                <p className="text-sm text-neutral-600">
+                  Você ainda não tem imóveis cadastrados.
+                </p>
+              )}
+
+              <div className="pt-4">
+                <p className="text-sm text-neutral-600 mb-2">
+                  Não encontrou o imóvel?
+                </p>
+                <Button variant="outline" asChild>
+                  <Link href="/dashboard/properties/new">
+                    Cadastrar Novo Imóvel
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Inspection Type */}
+        {currentStep === 2 && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-xl font-semibold text-neutral-900 mb-2">
+                Tipo de Vistoria
+              </h2>
+              <p className="text-sm text-neutral-600">
+                Selecione o tipo de vistoria que será realizada
+              </p>
+            </div>
+
+            <RadioGroup
+              value={formData.inspectionType}
+              onValueChange={(value) =>
+                updateFormData(
+                  'inspectionType',
+                  value as FormData['inspectionType']
+                )
+              }
+              className="space-y-4"
+            >
+              {inspectionTypes.map((type) => (
+                <label
+                  key={type.value}
+                  htmlFor={type.value}
+                  className={`
+                    flex items-start space-x-4 p-4 rounded-lg border-2 cursor-pointer
+                    transition-all
+                    ${
+                      formData.inspectionType === type.value
+                        ? 'border-primary-600 bg-primary-50'
+                        : 'border-neutral-200 hover:border-neutral-300'
+                    }
+                  `}
+                >
+                  <RadioGroupItem
+                    id={type.value}
+                    value={type.value}
+                    className="mt-0.5"
+                  />
+                  <div className="flex-1">
+                    <p className="font-semibold text-neutral-900">
+                      {type.label}
+                    </p>
+                    <p className="text-sm text-neutral-600 mt-1">
+                      {type.description}
+                    </p>
+                  </div>
+                </label>
+              ))}
+            </RadioGroup>
+          </div>
+        )}
+
+        {/* Step 3: Initial Data */}
+        {currentStep === 3 && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-xl font-semibold text-neutral-900 mb-2">
+                Dados Iniciais
+              </h2>
+              <p className="text-sm text-neutral-600">
+                Preencha as informações da vistoria
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="inspectorName">Nome do Vistoriador *</Label>
+                <Input
+                  id="inspectorName"
+                  value={formData.inspectorName}
+                  onChange={(e) =>
+                    updateFormData('inspectorName', e.target.value)
+                  }
+                  placeholder="Digite o nome do vistoriador"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="tenantName">Nome do Locatário</Label>
+                <Input
+                  id="tenantName"
+                  value={formData.tenantName}
+                  onChange={(e) => updateFormData('tenantName', e.target.value)}
+                  placeholder="Digite o nome do locatário"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="landlordName">Nome do Proprietário</Label>
+                <Input
+                  id="landlordName"
+                  value={formData.landlordName}
+                  onChange={(e) =>
+                    updateFormData('landlordName', e.target.value)
+                  }
+                  placeholder="Digite o nome do proprietário"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="scheduledDate">Data Agendada *</Label>
+                <Input
+                  id="scheduledDate"
+                  type="date"
+                  value={formData.scheduledDate}
+                  onChange={(e) =>
+                    updateFormData('scheduledDate', e.target.value)
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="notes">Observações</Label>
+                <Textarea
+                  id="notes"
+                  value={formData.notes}
+                  onChange={(e) => updateFormData('notes', e.target.value)}
+                  placeholder="Adicione observações sobre a vistoria (opcional)"
+                  rows={4}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Navigation Buttons */}
+        <div className="flex items-center justify-between pt-8 mt-8 border-t border-neutral-200">
+          <Button
+            variant="outline"
+            onClick={handlePrev}
+            disabled={currentStep === 1 || isSubmitting}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Anterior
+          </Button>
+
+          {currentStep < totalSteps ? (
+            <Button
+              onClick={handleNext}
+              disabled={!canProceedFromStep(currentStep)}
+            >
+              Próximo
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          ) : (
+            <Button
+              onClick={handleSubmit}
+              disabled={!canProceedFromStep(currentStep) || isSubmitting}
+            >
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Criar Vistoria
+              {!isSubmitting && <Check className="ml-2 h-4 w-4" />}
+            </Button>
+          )}
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+export default function NewInspectionPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+        </div>
+      }
+    >
+      <NewInspectionForm />
+    </Suspense>
+  )
+}
