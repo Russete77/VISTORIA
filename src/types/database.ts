@@ -253,3 +253,63 @@ export interface ComparisonWithDetails extends Comparison {
   move_out_inspection: Inspection
   differences: ComparisonDifference[]
 }
+
+// Team Management Types
+export type TeamRole = 'owner' | 'admin' | 'member' | 'viewer'
+
+export type TeamMemberStatus = 'active' | 'pending' | 'inactive'
+
+export type TeamInviteStatus = 'pending' | 'accepted' | 'expired' | 'cancelled'
+
+export interface TeamMember {
+  id: string
+  user_id: string
+  email: string
+  name: string
+  role: TeamRole
+  status: TeamMemberStatus
+  invited_at: string
+  accepted_at: string | null
+  last_active_at: string | null
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+}
+
+export interface TeamInvite {
+  id: string
+  user_id: string
+  email: string
+  role: TeamRole
+  token: string
+  status: TeamInviteStatus
+  expires_at: string
+  created_at: string
+}
+
+export interface TeamActivity {
+  id: string
+  user_id: string
+  team_member_id: string | null
+  action: string
+  entity_type: string | null
+  entity_id: string | null
+  metadata: Json
+  created_at: string
+}
+
+export interface TeamMemberStats {
+  inspections_count: number
+  reports_generated: number
+  last_inspection_date: string | null
+}
+
+export interface TeamMemberWithStats extends TeamMember {
+  inspections_count: number
+  reports_generated: number
+  last_inspection_date: string | null
+}
+
+export interface TeamActivityWithMember extends TeamActivity {
+  team_member: TeamMember | null
+}

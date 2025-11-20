@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { generateSatelitPDF } from '@/services/pdf-generator-satelit'
+import { canUseCredits, shouldSkipCreditDeduction } from '@/lib/auth/dev-access'
 
 /**
  * POST /api/inspections/[id]/generate-report
@@ -23,7 +24,7 @@ export async function POST(
     // Get user
     const { data: user } = await supabase
       .from('users')
-      .select('id, credits')
+      .select('id, credits, email')
       .eq('clerk_id', authResult.userId)
       .single()
 
@@ -31,8 +32,8 @@ export async function POST(
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Check credits (PDF generation costs 1 credit)
-    if (user.credits < 1) {
+    // Check credits (PDF generation costs 1 credit) - developers bypass this
+    if (!canUseCredits(user.credits, user.email)) {
       return NextResponse.json(
         { error: 'Insufficient credits' },
         { status: 402 }
@@ -65,9 +66,21 @@ export async function POST(
       .eq('inspection_id', id)
       .order('created_at', { ascending: true })
 
+    // Add public URLs to photos
+    const photosWithUrls = photos?.map((photo: any) => {
+      const { data: urlData } = supabase.storage
+        .from('inspection-photos')
+        .getPublicUrl(photo.storage_path)
+
+      return {
+        ...photo,
+        photo_url: urlData.publicUrl,
+      }
+    }) || []
+
     // Group photos by room
     const roomsMap = new Map()
-    photos?.forEach((photo: any) => {
+    photosWithUrls.forEach((photo: any) => {
       const roomKey = photo.room_name
       if (!roomsMap.has(roomKey)) {
         roomsMap.set(roomKey, {
@@ -147,25 +160,30 @@ export async function POST(
       return NextResponse.json({ error: 'Failed to update inspection' }, { status: 500 })
     }
 
-    // Deduct credit
-    await supabase
-      .from('users')
-      .update({ credits: user.credits - 1 })
-      .eq('id', user.id)
+    // Deduct credit (skip for developers)
+    let creditsRemaining = user.credits
+    if (!shouldSkipCreditDeduction(user.email)) {
+      await supabase
+        .from('users')
+        .update({ credits: user.credits - 1 })
+        .eq('id', user.id)
 
-    // Log credit transaction
-    await supabase.from('credit_transactions').insert({
-      user_id: user.id,
-      type: 'debit',
-      amount: 1,
-      description: `Geração de laudo PDF - Vistoria #${id.slice(0, 8)}`,
-      inspection_id: id,
-    })
+      // Log credit transaction
+      await supabase.from('credit_transactions').insert({
+        user_id: user.id,
+        type: 'debit',
+        amount: 1,
+        description: `Geração de laudo PDF - Vistoria #${id.slice(0, 8)}`,
+        inspection_id: id,
+      })
+
+      creditsRemaining = user.credits - 1
+    }
 
     return NextResponse.json({
       success: true,
       report_url: urlData.publicUrl,
-      credits_remaining: user.credits - 1,
+      credits_remaining: creditsRemaining,
     })
   } catch (error) {
     console.error('Report generation error:', error)

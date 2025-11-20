@@ -66,6 +66,7 @@ export const PRICING = {
       STORAGE_GB: 100,
       USERS: 3,
       OVERAGE_PRICE: 5.90,
+      EXTRA_USER_PRICE: 50.00,
     },
     BUSINESS: {
       PRICE: 699.00,
@@ -78,6 +79,7 @@ export const PRICING = {
       WHITE_LABEL: true,
       API_ACCESS: true,
       OVERAGE_PRICE: 4.90,
+      EXTRA_USER_PRICE: 50.00,
     },
   },
 
@@ -293,9 +295,59 @@ export const VALIDATION = {
 export const FEATURES = {
   ENABLE_GOOGLE_VISION: process.env.GOOGLE_VISION_API_KEY !== undefined,
   ENABLE_COMPARISONS: true,
+  ENABLE_TEAM_FEATURES: false, // Coming in Q2 2025
   ENABLE_WHITE_LABEL: false, // Coming in Phase 3
   ENABLE_MOBILE_APP: false, // Coming in Phase 3
   ENABLE_API_ACCESS: false, // Coming in Phase 3
+} as const
+
+// =============================================================================
+// Team Features Configuration
+// =============================================================================
+
+export const TEAM_FEATURES = [
+  {
+    id: 'multi-users',
+    title: 'Múltiplos Usuários',
+    description: 'Adicione até 10 membros na sua equipe',
+    requiredTier: 'business' as UserTier,
+  },
+  {
+    id: 'permissions',
+    title: 'Permissões Granulares',
+    description: 'Controle o que cada membro pode visualizar e editar',
+    requiredTier: 'business' as UserTier,
+  },
+  {
+    id: 'centralized',
+    title: 'Gestão Centralizada',
+    description: 'Gerencie todos os imóveis e vistorias em um só lugar',
+    requiredTier: 'business' as UserTier,
+  },
+  {
+    id: 'workflows',
+    title: 'Workflows Colaborativos',
+    description: 'Vistorias em equipe com atribuição de tarefas',
+    requiredTier: 'business' as UserTier,
+  },
+  {
+    id: 'audit',
+    title: 'Auditoria Completa',
+    description: 'Histórico de todas as ações dos membros',
+    requiredTier: 'business' as UserTier,
+  },
+  {
+    id: 'white-label',
+    title: 'White Label',
+    description: 'Personalize com sua marca e domínio próprio',
+    requiredTier: 'business' as UserTier,
+  },
+] as const
+
+export const TEAM_LAUNCH_DATE = {
+  QUARTER: 'Q2',
+  YEAR: 2025,
+  DISPLAY: 'segundo trimestre de 2025',
 } as const
 
 // =============================================================================

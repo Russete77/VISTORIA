@@ -18,10 +18,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { packageId } = await request.json()
+    const { credits } = await request.json()
 
-    if (!packageId) {
-      return NextResponse.json({ error: 'Package ID required' }, { status: 400 })
+    if (!credits || credits < 1) {
+      return NextResponse.json({ error: 'Credits must be at least 1' }, { status: 400 })
+    }
+
+    if (credits > 1000) {
+      return NextResponse.json({ error: 'Maximum 1000 credits per purchase' }, { status: 400 })
     }
 
     const supabase = createAdminClient()
@@ -37,28 +41,36 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Define credit packages
-    const packages: Record<string, { credits: number; price: number; name: string }> = {
-      starter: {
-        credits: 10,
-        price: 2990, // R$ 29.90 in cents
-        name: 'Pacote Starter - 10 Créditos',
-      },
-      pro: {
-        credits: 30,
-        price: 7990, // R$ 79.90 in cents (save ~11%)
-        name: 'Pacote Pro - 30 Créditos',
-      },
-      enterprise: {
-        credits: 100,
-        price: 19990, // R$ 199.90 in cents (save ~33%)
-        name: 'Pacote Enterprise - 100 Créditos',
-      },
+    // Preço base por crédito em centavos (R$ 9,90 = 990 centavos)
+    const PRICE_PER_CREDIT = 990
+
+    // Calculate discount based on quantity
+    let discount = 0
+    let discountLabel = ''
+
+    if (credits >= 100) {
+      discount = 0.30 // 30% off
+      discountLabel = 'Economize 30%'
+    } else if (credits >= 50) {
+      discount = 0.20 // 20% off
+      discountLabel = 'Economize 20%'
+    } else if (credits >= 25) {
+      discount = 0.15 // 15% off
+      discountLabel = 'Economize 15%'
+    } else if (credits >= 10) {
+      discount = 0.10 // 10% off
+      discountLabel = 'Economize 10%'
     }
 
-    const selectedPackage = packages[packageId]
-    if (!selectedPackage) {
-      return NextResponse.json({ error: 'Invalid package' }, { status: 400 })
+    const basePrice = credits * PRICE_PER_CREDIT
+    const finalPrice = Math.round(basePrice * (1 - discount))
+    const selectedPackage = {
+      credits,
+      price: finalPrice,
+      name: `${credits} Crédito${credits > 1 ? 's' : ''} VistorIA Pro`,
+      description: discount > 0
+        ? `${credits} créditos • ${discountLabel}`
+        : `${credits} créditos`,
     }
 
     // Create Stripe checkout session with PIX and Boleto support
@@ -71,8 +83,7 @@ export async function POST(request: NextRequest) {
             currency: 'brl',
             product_data: {
               name: selectedPackage.name,
-              description: `Compre ${selectedPackage.credits} créditos para criar vistorias e gerar laudos`,
-              images: ['https://vistoria-pro.com/logo.png'], // Add your logo URL
+              description: selectedPackage.description,
             },
             unit_amount: selectedPackage.price,
           },
@@ -87,8 +98,9 @@ export async function POST(request: NextRequest) {
       metadata: {
         user_id: user.id,
         clerk_id: authResult.userId,
-        credits: selectedPackage.credits.toString(),
-        package_id: packageId,
+        credits: credits.toString(),
+        discount: discount.toString(),
+        type: 'credit_purchase',
       },
       // Boleto-specific configuration
       payment_method_options: {
@@ -103,6 +115,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       sessionId: session.id,
       url: session.url,
+      amount: finalPrice,
+      credits,
+      discount: discount * 100, // Return as percentage
     })
   } catch (error) {
     console.error('Create checkout error:', error)

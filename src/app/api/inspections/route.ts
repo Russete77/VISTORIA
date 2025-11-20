@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { z } from 'zod'
+import { canUseCredits } from '@/lib/auth/dev-access'
 
 /**
  * Inspections API - VistorIA Pro
@@ -13,10 +14,10 @@ const inspectionSchema = z.object({
   property_id: z.string().uuid(),
   type: z.enum(['move_in', 'move_out', 'periodic']),
   inspector_name: z.string().min(2),
-  tenant_name: z.string().optional(),
-  landlord_name: z.string().optional(),
+  tenant_name: z.string().optional().nullable(),
+  landlord_name: z.string().optional().nullable(),
   scheduled_date: z.string().datetime(),
-  notes: z.string().optional(),
+  notes: z.string().optional().nullable(),
 })
 
 // GET: List all inspections
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
     // Get user from database
     const { data: user } = await supabase
       .from('users')
-      .select('id, credits')
+      .select('id, credits, email')
       .eq('clerk_id', userId)
       .single()
 
@@ -114,8 +115,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Check if user has credits
-    if (user.credits < 1) {
+    // Check if user has credits (developers bypass this check)
+    if (!canUseCredits(user.credits, user.email)) {
       return NextResponse.json(
         { error: 'Insufficient credits. Please purchase more credits.' },
         { status: 402 }

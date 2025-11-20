@@ -12,7 +12,14 @@ import ReactPDF, { Document, Page, Text, View, Image, StyleSheet, Font } from '@
  */
 async function fetchImageAsBase64(url: string): Promise<string> {
   try {
+    console.log('[PDF] Fetching image:', url)
     const response = await fetch(url)
+
+    if (!response.ok) {
+      console.error('[PDF] Failed to fetch image - Status:', response.status, response.statusText)
+      throw new Error(`HTTP ${response.status}`)
+    }
+
     const arrayBuffer = await response.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
     const base64 = buffer.toString('base64')
@@ -25,9 +32,10 @@ async function fetchImageAsBase64(url: string): Promise<string> {
       mimeType = 'image/webp'
     }
 
+    console.log('[PDF] Successfully converted image to base64, size:', base64.length)
     return `data:${mimeType};base64,${base64}`
   } catch (error) {
-    console.error('Failed to fetch image:', url, error)
+    console.error('[PDF] Failed to fetch image:', url, error)
     // Return a transparent 1x1 pixel as fallback
     return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
   }
@@ -36,26 +44,26 @@ async function fetchImageAsBase64(url: string): Promise<string> {
 const styles = StyleSheet.create({
   // Page Styles
   coverPage: {
-    padding: 40,
+    padding: 30,
     fontFamily: 'Helvetica',
     fontSize: 10,
   },
   infoPage: {
-    padding: 40,
+    padding: 30,
     fontFamily: 'Helvetica',
     fontSize: 10,
-    lineHeight: 1.6,
+    lineHeight: 1.4,
   },
   roomPage: {
-    padding: 40,
+    padding: 25,
     fontFamily: 'Helvetica',
     fontSize: 9,
-    lineHeight: 1.5,
+    lineHeight: 1.3,
   },
 
   // Header
   header: {
-    marginBottom: 30,
+    marginBottom: 20,
     textAlign: 'center',
   },
   logo: {
@@ -164,25 +172,26 @@ const styles = StyleSheet.create({
 
   // Room Details
   roomTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 'bold',
-    marginBottom: 15,
-    paddingBottom: 5,
+    marginBottom: 10,
+    paddingBottom: 4,
     borderBottomWidth: 2,
     borderBottomColor: '#1E40AF',
     borderBottomStyle: 'solid',
   },
   detailsBox: {
     backgroundColor: '#F8FAFC',
-    padding: 15,
+    padding: 10,
     borderRadius: 4,
-    marginBottom: 15,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: '#CBD5E1',
     borderStyle: 'solid',
+    wrap: false, // Prevent box from being cut across pages
   },
   detailRow: {
-    marginBottom: 8,
+    marginBottom: 5,
   },
   detailLabel: {
     fontWeight: 'bold',
@@ -195,8 +204,8 @@ const styles = StyleSheet.create({
   checkbox: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 10,
-    marginBottom: 15,
+    marginTop: 8,
+    marginBottom: 10,
   },
   checkboxSquare: {
     width: 12,
@@ -215,15 +224,17 @@ const styles = StyleSheet.create({
   photosGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
+    marginBottom: 10,
   },
   photoContainer: {
     width: '48%',
-    marginBottom: 10,
+    marginBottom: 8,
+    wrap: false, // Prevent photo from being cut across pages
   },
   photo: {
     width: '100%',
-    height: 150,
+    height: 180,
     objectFit: 'cover',
     borderRadius: 4,
     borderWidth: 1,
@@ -231,9 +242,9 @@ const styles = StyleSheet.create({
     borderStyle: 'solid',
   },
   photoCaption: {
-    fontSize: 8,
+    fontSize: 7,
     textAlign: 'center',
-    marginTop: 3,
+    marginTop: 2,
     color: '#64748B',
   },
 
@@ -314,7 +325,9 @@ export async function generateSatelitPDF(options: GenerateSatelitPDFOptions): Pr
 
   const reportNumber = `VIA ${new Date().getFullYear()} – ${inspection.id.slice(0, 6).toUpperCase()}`
   const vistoriaType = typeLabels[inspection.type] || inspection.type.toUpperCase()
-  const propertyType = propertyTypeLabels[inspection.property.type] || inspection.property.type.toUpperCase()
+  const propertyType = inspection.property.type
+    ? (propertyTypeLabels[inspection.property.type] || inspection.property.type.toUpperCase())
+    : 'NÃO ESPECIFICADO'
 
   // Convert all photo URLs to base64 for PDF rendering
   console.log('[PDF] Converting images to base64...')
@@ -461,92 +474,118 @@ export async function generateSatelitPDF(options: GenerateSatelitPDFOptions): Pr
       </Page>
 
       {/* PAGES 3+: ROOM DETAILS */}
-      {roomsWithBase64Photos.map((room) => (
-        <Page key={room.id} size="A4" style={styles.roomPage}>
-          <View style={{ marginBottom: 20 }}>
-            <Text style={styles.logo}>VISTORIA PRO</Text>
-            <Text style={styles.reportNumber}>{reportNumber}</Text>
-            <Text style={{ fontSize: 12, fontWeight: 'bold', marginTop: 5 }}>
-              LAUDO DE VISTORIA DE IMÓVEL
-            </Text>
-            <Text style={{ fontSize: 11, marginTop: 2 }}>
-              DETALHAMENTO POR DEPENDÊNCIA
-            </Text>
-          </View>
+      {roomsWithBase64Photos.map((room) => {
+        const PHOTOS_PER_PAGE = 6
+        const photoChunks = []
 
-          <Text style={styles.roomTitle}>{room.name.toUpperCase()}</Text>
+        // Split photos into chunks of 6
+        for (let i = 0; i < room.photos.length; i += PHOTOS_PER_PAGE) {
+          photoChunks.push(room.photos.slice(i, i + PHOTOS_PER_PAGE))
+        }
 
-          {/* AI Summary */}
-          {room.photos.some((p) => p.ai_summary) && (
-            <View style={styles.detailsBox}>
-              {room.photos
-                .filter((p) => p.ai_summary)
-                .map((photo) => (
-                  <View key={photo.id} style={styles.detailRow}>
-                    <Text style={styles.detailText}>
-                      <Text style={styles.detailLabel}>ANÁLISE IA:</Text> {photo.ai_summary}
-                    </Text>
-                  </View>
-                ))}
-            </View>
-          )}
+        // If no photos, create one page anyway
+        if (photoChunks.length === 0) {
+          photoChunks.push([])
+        }
 
-          {/* Detailed Problems List */}
-          {room.photos.some((p) => p.ai_has_problems && p.problems?.length > 0) && (
-            <View style={styles.detailsBox}>
-              <Text style={styles.sectionSubtitle}>PROBLEMAS DETECTADOS:</Text>
-              {room.photos
-                .filter((p) => p.ai_has_problems && p.problems)
-                .flatMap((p) => p.problems)
-                .map((problem, idx) => (
-                  <View key={idx} style={styles.detailRow}>
-                    <Text style={styles.detailText}>
-                      • {problem.description}
-                      {problem.location && ` (${problem.location})`}
-                    </Text>
-                    {problem.suggested_action && (
-                      <Text style={[styles.detailText, { marginLeft: 10, fontSize: 8 }]}>
-                        Ação: {problem.suggested_action}
-                      </Text>
-                    )}
-                  </View>
-                ))}
-            </View>
-          )}
-
-          {/* Basic observation for rooms without AI analysis */}
-          {!room.photos.some((p) => p.ai_summary || p.ai_has_problems) && (
-            <View style={styles.detailsBox}>
-              <Text style={styles.detailText}>
-                Aguardando análise detalhada ou observações adicionais.
+        return photoChunks.map((photoChunk, chunkIndex) => (
+          <Page key={`${room.id}-${chunkIndex}`} size="A4" style={styles.roomPage}>
+            <View style={{ marginBottom: 15 }}>
+              <Text style={styles.logo}>VISTORIA PRO</Text>
+              <Text style={styles.reportNumber}>{reportNumber}</Text>
+              <Text style={{ fontSize: 12, fontWeight: 'bold', marginTop: 5 }}>
+                LAUDO DE VISTORIA DE IMÓVEL
+              </Text>
+              <Text style={{ fontSize: 11, marginTop: 2 }}>
+                DETALHAMENTO POR DEPENDÊNCIA
               </Text>
             </View>
-          )}
 
-          {/* Photo Registration Checkbox */}
-          <View style={styles.checkbox}>
-            <View style={styles.checkboxSquare} />
-            <Text style={styles.checkboxLabel}>REGISTRO FOTOGRÁFICO</Text>
-          </View>
+            <Text style={styles.roomTitle}>
+              {room.name.toUpperCase()}
+              {photoChunks.length > 1 && ` (${chunkIndex + 1}/${photoChunks.length})`}
+            </Text>
 
-          {/* Photos - Maximum 4 per page */}
-          {room.photos.length > 0 && (
-            <View style={styles.photosGrid}>
-              {room.photos.slice(0, 4).map((photo: any, idx) => (
-                <View key={photo.id} style={styles.photoContainer}>
-                  <Image src={photo.photo_url_base64} style={styles.photo} />
-                  <Text style={styles.photoCaption}>Foto {idx + 1}</Text>
+            {/* Show details only on first page of room */}
+            {chunkIndex === 0 && (
+              <>
+                {/* AI Summary */}
+                {room.photos.some((p) => p.ai_summary) && (
+                  <View style={styles.detailsBox}>
+                    {room.photos
+                      .filter((p) => p.ai_summary)
+                      .map((photo) => (
+                        <View key={photo.id} style={styles.detailRow}>
+                          <Text style={styles.detailText}>
+                            <Text style={styles.detailLabel}>ANÁLISE IA:</Text> {photo.ai_summary}
+                          </Text>
+                        </View>
+                      ))}
+                  </View>
+                )}
+
+                {/* Detailed Problems List */}
+                {room.photos.some((p) => p.ai_has_problems && p.problems?.length > 0) && (
+                  <View style={styles.detailsBox}>
+                    <Text style={styles.sectionSubtitle}>PROBLEMAS DETECTADOS:</Text>
+                    {room.photos
+                      .filter((p) => p.ai_has_problems && p.problems)
+                      .flatMap((p) => p.problems)
+                      .map((problem, idx) => (
+                        <View key={idx} style={styles.detailRow}>
+                          <Text style={styles.detailText}>
+                            • {problem.description}
+                            {problem.location && ` (${problem.location})`}
+                          </Text>
+                          {problem.suggested_action && (
+                            <Text style={[styles.detailText, { marginLeft: 10, fontSize: 8 }]}>
+                              Ação: {problem.suggested_action}
+                            </Text>
+                          )}
+                        </View>
+                      ))}
+                  </View>
+                )}
+
+                {/* Basic observation for rooms without AI analysis */}
+                {!room.photos.some((p) => p.ai_summary || p.ai_has_problems) && (
+                  <View style={styles.detailsBox}>
+                    <Text style={styles.detailText}>
+                      Aguardando análise detalhada ou observações adicionais.
+                    </Text>
+                  </View>
+                )}
+
+                {/* Photo Registration Checkbox */}
+                <View style={styles.checkbox}>
+                  <View style={styles.checkboxSquare} />
+                  <Text style={styles.checkboxLabel}>REGISTRO FOTOGRÁFICO</Text>
                 </View>
-              ))}
-            </View>
-          )}
+              </>
+            )}
 
-          <View style={styles.footer}>
-            <Text>VISTORIA PRO</Text>
-            <Text>contato@vistoriapro.com.br</Text>
-          </View>
-        </Page>
-      ))}
+            {/* Photos - 6 per page in 2 columns */}
+            {photoChunk.length > 0 && (
+              <View style={styles.photosGrid}>
+                {photoChunk.map((photo: any, idx) => {
+                  const photoNumber = chunkIndex * PHOTOS_PER_PAGE + idx + 1
+                  return (
+                    <View key={photo.id} style={styles.photoContainer}>
+                      <Image src={photo.photo_url_base64} style={styles.photo} />
+                      <Text style={styles.photoCaption}>Foto {photoNumber}</Text>
+                    </View>
+                  )
+                })}
+              </View>
+            )}
+
+            <View style={styles.footer}>
+              <Text>VISTORIA PRO</Text>
+              <Text>contato@vistoriapro.com.br</Text>
+            </View>
+          </Page>
+        ))
+      })}
     </Document>
   )
 

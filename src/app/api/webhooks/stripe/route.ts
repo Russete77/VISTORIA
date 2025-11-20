@@ -40,12 +40,15 @@ export async function POST(request: NextRequest) {
         // Get metadata
         const userId = session.metadata?.user_id
         const credits = parseInt(session.metadata?.credits || '0')
-        const packageId = session.metadata?.package_id
+        const discount = parseFloat(session.metadata?.discount || '0')
+        const type = session.metadata?.type || 'credit_purchase'
 
         if (!userId || !credits) {
           console.error('Missing metadata in webhook:', session.metadata)
           return NextResponse.json({ error: 'Missing metadata' }, { status: 400 })
         }
+
+        console.log(`[Stripe Webhook] Processing payment for user ${userId}: ${credits} credits`)
 
         // Get current user credits
         const { data: user, error: userError } = await supabase
@@ -72,19 +75,23 @@ export async function POST(request: NextRequest) {
         }
 
         // Record transaction
+        const amountInReais = (session.amount_total || 0) / 100
         const { error: transactionError } = await supabase
           .from('credit_transactions')
           .insert({
             user_id: userId,
             type: 'credit',
             amount: credits,
-            description: `Compra de ${credits} créditos - Pacote ${packageId}`,
+            description: `Compra de ${credits} crédito${credits > 1 ? 's' : ''} via ${session.payment_method_types?.[0] || 'stripe'}${discount > 0 ? ` (${(discount * 100).toFixed(0)}% desconto)` : ''}`,
             stripe_session_id: session.id,
             stripe_payment_intent_id: session.payment_intent as string,
             metadata: {
-              package_id: packageId,
-              amount_paid: session.amount_total,
+              credits,
+              discount,
+              amount_paid: amountInReais,
               currency: session.currency,
+              payment_method: session.payment_method_types?.[0],
+              type,
             },
           })
 
@@ -93,7 +100,7 @@ export async function POST(request: NextRequest) {
           // Don't return error - credits were added successfully
         }
 
-        console.log(`✅ Added ${credits} credits to user ${userId}`)
+        console.log(`✅ Added ${credits} credits to user ${userId} (paid R$ ${amountInReais.toFixed(2)})`)
         break
       }
 

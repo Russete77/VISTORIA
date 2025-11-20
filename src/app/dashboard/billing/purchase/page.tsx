@@ -18,10 +18,9 @@ import { toast } from 'sonner'
 export default function PurchasePage() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const [selectedPack, setSelectedPack] = useState<string | null>(
-    searchParams.get('pack') || null
-  )
+  const [credits, setCredits] = useState(10)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [showCustomInput, setShowCustomInput] = useState(false)
 
   const packs = [
     {
@@ -58,26 +57,55 @@ export default function PurchasePage() {
     },
   ]
 
+  // Calculate price with discount
+  const PRICE_PER_CREDIT = 9.90
+  let discount = 0
+
+  if (credits >= 100) {
+    discount = 0.30 // 30% off
+  } else if (credits >= 50) {
+    discount = 0.20 // 20% off
+  } else if (credits >= 25) {
+    discount = 0.15 // 15% off
+  } else if (credits >= 10) {
+    discount = 0.10 // 10% off
+  }
+
+  const basePrice = credits * PRICE_PER_CREDIT
+  const finalPrice = basePrice * (1 - discount)
+
   const handlePurchase = async () => {
-    if (!selectedPack) {
-      toast.error('Selecione um pacote de créditos')
+    if (credits < 1) {
+      toast.error('Selecione pelo menos 1 crédito')
+      return
+    }
+
+    if (credits > 1000) {
+      toast.error('Máximo de 1000 créditos por compra')
       return
     }
 
     setIsProcessing(true)
 
     try {
-      // TODO: Integrar com Stripe/Payment Gateway
-      toast.info('Funcionalidade de pagamento em desenvolvimento')
+      const response = await fetch('/api/billing/create-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credits }),
+      })
 
-      // Simulação de delay
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      if (!response.ok) {
+        throw new Error('Falha ao criar checkout')
+      }
 
-      toast.success('Em breve você poderá comprar créditos diretamente!')
+      const { url } = await response.json()
+
+      // Redirect to Stripe checkout
+      window.location.href = url
 
     } catch (error) {
+      console.error('Purchase error:', error)
       toast.error('Erro ao processar pagamento')
-    } finally {
       setIsProcessing(false)
     }
   }
@@ -119,139 +147,157 @@ export default function PurchasePage() {
         </CardContent>
       </Card>
 
-      {/* Credit Packs */}
-      <div className="grid gap-6 md:grid-cols-3">
-        {packs.map((pack) => (
-          <Card
-            key={pack.id}
-            className={`cursor-pointer transition-all ${
-              selectedPack === pack.id
-                ? 'border-2 border-primary-500 shadow-lg'
-                : 'border-neutral-200 hover:border-primary-300'
-            } ${pack.popular ? 'relative' : ''}`}
-            onClick={() => setSelectedPack(pack.id)}
-          >
-            {pack.popular && (
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                <Badge className="bg-primary-600 text-white px-4">
-                  Mais Popular
-                </Badge>
+      {/* Custom Credit Selector */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Escolha a Quantidade de Créditos</CardTitle>
+          <CardDescription>
+            Quanto mais créditos, maior o desconto
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Quick Select Buttons */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {[10, 25, 50, 100, 250].map((amount) => (
+              <Button
+                key={amount}
+                variant={credits === amount ? 'default' : 'outline'}
+                onClick={() => {
+                  setCredits(amount)
+                  setShowCustomInput(false)
+                }}
+                className="h-auto flex-col py-3"
+              >
+                <span className="text-2xl font-bold">{amount}</span>
+                <span className="text-xs opacity-75">créditos</span>
+              </Button>
+            ))}
+          </div>
+
+          {/* Custom Amount Toggle */}
+          <div className="flex items-center justify-center">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowCustomInput(!showCustomInput)}
+            >
+              {showCustomInput ? 'Ocultar' : 'Quantidade personalizada'}
+            </Button>
+          </div>
+
+          {/* Custom Input */}
+          {showCustomInput && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-neutral-700">
+                Quantidade de créditos (1 - 1000)
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="1000"
+                value={credits}
+                onChange={(e) => setCredits(parseInt(e.target.value) || 1)}
+                className="w-full px-4 py-2 border border-neutral-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+            </div>
+          )}
+
+          {/* Discount Tiers */}
+          <div className="grid gap-2">
+            <div className={`p-3 rounded-lg border-2 ${credits >= 100 ? 'border-green-500 bg-green-50' : 'border-neutral-200'}`}>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">100+ créditos</span>
+                <Badge className="bg-green-600 text-white">30% OFF</Badge>
               </div>
-            )}
-
-            <CardHeader className="pb-4">
-              <CardTitle className="text-xl">{pack.name}</CardTitle>
-              <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-bold text-primary-600">
-                  R$ {pack.price.toFixed(2)}
-                </span>
+            </div>
+            <div className={`p-3 rounded-lg border ${credits >= 50 && credits < 100 ? 'border-green-500 bg-green-50' : 'border-neutral-200'}`}>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">50-99 créditos</span>
+                <Badge variant="outline" className="border-green-600 text-green-700">20% OFF</Badge>
               </div>
-              <p className="text-sm text-neutral-600">
-                R$ {(pack.price / pack.credits).toFixed(2)} por crédito
-              </p>
-            </CardHeader>
-
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-green-600" />
-                  <span className="text-sm">{pack.credits} créditos</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-green-600" />
-                  <span className="text-sm">
-                    {pack.comparisons === 'unlimited'
-                      ? 'Comparações ilimitadas'
-                      : `${pack.comparisons} comparações`}
-                  </span>
-                </div>
-                {pack.googleVision && (
-                  <div className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-green-600" />
-                    <span className="text-sm">
-                      {pack.googleVision} análises Google Vision
-                    </span>
-                  </div>
-                )}
-                {pack.storage && (
-                  <div className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-green-600" />
-                    <span className="text-sm">{pack.storage}GB de armazenamento</span>
-                  </div>
-                )}
-                <div className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-green-600" />
-                  <span className="text-sm">Validade: {pack.validity} meses</span>
-                </div>
+            </div>
+            <div className={`p-3 rounded-lg border ${credits >= 25 && credits < 50 ? 'border-primary-500 bg-primary-50' : 'border-neutral-200'}`}>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">25-49 créditos</span>
+                <Badge variant="outline" className="border-primary-600 text-primary-700">15% OFF</Badge>
               </div>
-
-              <div className="pt-3 border-t">
-                <Badge className="bg-green-100 text-green-700">
-                  Economize {pack.discount}
-                </Badge>
+            </div>
+            <div className={`p-3 rounded-lg border ${credits >= 10 && credits < 25 ? 'border-primary-500 bg-primary-50' : 'border-neutral-200'}`}>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">10-24 créditos</span>
+                <Badge variant="outline" className="border-primary-600 text-primary-700">10% OFF</Badge>
               </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-              {selectedPack === pack.id && (
-                <div className="flex items-center gap-2 text-primary-600 font-medium">
-                  <Check className="h-5 w-5" />
-                  <span className="text-sm">Selecionado</span>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Purchase Button */}
+      {/* Purchase Summary */}
       <Card>
         <CardHeader>
           <CardTitle>Resumo da Compra</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {selectedPack ? (
+          <div className="flex items-center justify-between py-3 border-b">
+            <span className="text-neutral-600">Créditos:</span>
+            <span className="font-semibold text-neutral-900">
+              {credits} {credits === 1 ? 'crédito' : 'créditos'}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between py-3 border-b">
+            <span className="text-neutral-600">Preço base:</span>
+            <span className="text-neutral-600">
+              R$ {basePrice.toFixed(2)}
+            </span>
+          </div>
+
+          {discount > 0 && (
             <>
               <div className="flex items-center justify-between py-3 border-b">
-                <span className="text-neutral-600">Pacote selecionado:</span>
-                <span className="font-semibold text-neutral-900">
-                  {packs.find(p => p.id === selectedPack)?.name}
+                <span className="text-neutral-600">Desconto:</span>
+                <span className="text-green-600 font-semibold">
+                  -{(discount * 100).toFixed(0)}% (R$ {(basePrice - finalPrice).toFixed(2)})
                 </span>
               </div>
               <div className="flex items-center justify-between py-3 border-b">
-                <span className="text-neutral-600">Créditos:</span>
-                <span className="font-semibold text-neutral-900">
-                  +{packs.find(p => p.id === selectedPack)?.credits}
+                <span className="text-neutral-600">Preço por crédito:</span>
+                <span className="text-neutral-900 font-medium">
+                  R$ {(finalPrice / credits).toFixed(2)}
                 </span>
               </div>
-              <div className="flex items-center justify-between py-3">
-                <span className="text-lg font-semibold text-neutral-900">Total:</span>
-                <span className="text-2xl font-bold text-primary-600">
-                  R$ {packs.find(p => p.id === selectedPack)?.price.toFixed(2)}
-                </span>
-              </div>
-              <Button
-                onClick={handlePurchase}
-                disabled={isProcessing}
-                size="lg"
-                className="w-full"
-              >
-                {isProcessing ? (
-                  <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Processando...
-                  </>
-                ) : (
-                  <>
-                    <CreditCard className="mr-2 h-5 w-5" />
-                    Finalizar Compra
-                  </>
-                )}
-              </Button>
             </>
-          ) : (
-            <div className="text-center py-8 text-neutral-500">
-              Selecione um pacote acima para continuar
-            </div>
           )}
+
+          <div className="flex items-center justify-between py-3">
+            <span className="text-lg font-semibold text-neutral-900">Total:</span>
+            <span className="text-2xl font-bold text-primary-600">
+              R$ {finalPrice.toFixed(2)}
+            </span>
+          </div>
+
+          <Button
+            onClick={handlePurchase}
+            disabled={isProcessing || credits < 1}
+            size="lg"
+            className="w-full"
+          >
+            {isProcessing ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                Redirecionando para pagamento...
+              </>
+            ) : (
+              <>
+                <CreditCard className="mr-2 h-5 w-5" />
+                Ir para Pagamento
+              </>
+            )}
+          </Button>
+
+          <p className="text-xs text-neutral-500 text-center">
+            Você será redirecionado para o Stripe para concluir o pagamento
+          </p>
         </CardContent>
       </Card>
 

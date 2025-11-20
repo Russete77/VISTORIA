@@ -1,6 +1,7 @@
 import { useUser as useClerkUser } from '@clerk/nextjs'
 import { useEffect, useState } from 'react'
 import type { User } from '@/types/database'
+import { isDeveloper, getEffectiveCredits } from '@/lib/auth/dev-access'
 
 export function useAuth() {
   const { user: clerkUser, isLoaded, isSignedIn } = useClerkUser()
@@ -30,12 +31,17 @@ export function useAuth() {
     fetchUser()
   }, [clerkUser, isLoaded, isSignedIn])
 
+  const effectiveCredits = getEffectiveCredits(dbUser?.credits ?? 0, dbUser?.email)
+  const isDevUser = isDeveloper(dbUser?.email)
+
   return {
     user: dbUser,
     clerkUser,
     isLoading,
     isSignedIn,
-    hasCredits: (dbUser?.credits ?? 0) > 0,
+    hasCredits: effectiveCredits > 0,
     tier: dbUser?.tier ?? 'free',
+    isDeveloper: isDevUser,
+    effectiveCredits,
   }
 }
