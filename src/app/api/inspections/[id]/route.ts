@@ -12,9 +12,12 @@ import { z } from 'zod'
 
 const inspectionUpdateSchema = z.object({
   inspector_name: z.string().min(2).optional(),
+  inspector_email: z.string().email().optional().nullable(),
   tenant_name: z.string().optional().nullable(),
+  tenant_email: z.string().email().optional().nullable(),
   landlord_name: z.string().optional().nullable(),
-  scheduled_date: z.string().datetime().optional(),
+  landlord_email: z.string().email().optional().nullable(),
+  scheduled_date: z.string().datetime().optional().nullable(),
   notes: z.string().optional().nullable(),
   status: z.enum(['draft', 'in_progress', 'completed', 'signed']).optional(),
 })
@@ -220,7 +223,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
+        { error: 'Validation error', details: error.issues },
         { status: 400 }
       )
     }

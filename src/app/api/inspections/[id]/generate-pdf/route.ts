@@ -108,7 +108,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     })
 
     // Return PDF as downloadable file
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(pdfBuffer as unknown as BodyInit, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

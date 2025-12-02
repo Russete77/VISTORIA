@@ -16,9 +16,7 @@ import type { TeamRole } from '@/types/database'
 
 const inviteSchema = z.object({
   email: z.string().email('Email inválido'),
-  role: z.enum(['admin', 'member', 'viewer'], {
-    errorMap: () => ({ message: 'Função inválida' }),
-  }),
+  role: z.enum(['admin', 'member', 'viewer']),
 })
 
 export async function POST(request: NextRequest) {
@@ -69,7 +67,7 @@ export async function POST(request: NextRequest) {
 
     if (!validation.success) {
       return NextResponse.json(
-        { error: validation.error.errors[0].message },
+        { error: validation.error.issues[0].message },
         { status: 400 }
       )
     }

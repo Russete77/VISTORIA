@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Building2, ClipboardCheck, FileText, TrendingUp, Plus, ArrowRight, Loader2 } from 'lucide-react'
+import { Building2, ClipboardCheck, FileText, TrendingUp, Plus, ArrowRight, Loader2, GitCompare } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { InspectionBadge } from '@/components/vistoria'
 import { useProperties } from '@/hooks/use-properties'
 import { useInspections } from '@/hooks/use-inspections'
+import { useComparisons } from '@/hooks/use-comparisons'
 import type { Inspection } from '@/types/database'
 
 interface DashboardStats {
@@ -21,6 +22,7 @@ interface DashboardStats {
 export default function DashboardPage() {
   const { properties, isLoading: isLoadingProperties } = useProperties()
   const { inspections, isLoading: isLoadingInspections } = useInspections()
+  const { comparisons, isLoading: isLoadingComparisons } = useComparisons()
   const [stats, setStats] = useState<DashboardStats>({
     totalProperties: 0,
     inspectionsThisMonth: 0,
@@ -71,6 +73,11 @@ export default function DashboardPage() {
   const recentInspections = inspections
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 4)
+
+  // Get recent comparisons (last 3)
+  const recentComparisons = comparisons
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, 3)
 
   const statsConfig = [
     {
@@ -251,12 +258,90 @@ export default function DashboardPage() {
         </Card>
       </div>
 
+      {/* Recent Comparisons */}
+      <div className="px-4 sm:px-0">
+        <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h2 className="text-lg sm:text-xl font-semibold text-neutral-900">
+              Comparações Recentes
+            </h2>
+            <p className="mt-1 text-xs sm:text-sm text-neutral-600">
+              Últimas comparações entre vistorias de entrada e saída
+            </p>
+          </div>
+          <Link href="/dashboard/comparisons" className="w-full sm:w-auto">
+            <Button variant="ghost" size="sm" className="w-full sm:w-auto">
+              Ver Todas
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </Link>
+        </div>
+
+        <Card className="border-neutral-200 bg-white p-6">
+          {recentComparisons.length === 0 ? (
+            <div className="text-center py-8">
+              <GitCompare className="h-12 w-12 text-neutral-400 mx-auto mb-3" />
+              <p className="text-neutral-600 mb-4">Nenhuma comparação criada ainda</p>
+              <Button asChild>
+                <Link href="/dashboard/comparisons/new">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Criar Primeira Comparação
+                </Link>
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {recentComparisons.map((comparison) => {
+                const property = properties.find((p) => p.id === comparison.property_id)
+                const statusConfig = {
+                  pending: { label: 'Pendente', color: 'bg-gray-100 text-gray-700' },
+                  processing: { label: 'Processando', color: 'bg-blue-100 text-blue-700' },
+                  completed: { label: 'Concluída', color: 'bg-green-100 text-green-700' },
+                  failed: { label: 'Falhou', color: 'bg-red-100 text-red-700' },
+                }
+                const status = statusConfig[comparison.status]
+
+                return (
+                  <Link
+                    key={comparison.id}
+                    href={`/dashboard/comparisons/${comparison.id}`}
+                    className="block border rounded-lg p-4 hover:bg-neutral-50 transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-medium text-neutral-900">
+                        {property?.name || 'Imóvel não encontrado'}
+                      </h3>
+                      <Badge className={status.color} variant="secondary">
+                        {status.label}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-neutral-600 mb-2">
+                      {property?.address || ''}
+                    </p>
+                    {comparison.status === 'completed' && (
+                      <div className="flex gap-4 text-sm">
+                        <span className="text-neutral-600">
+                          <strong className="text-red-600">{comparison.new_damages}</strong> danos novos
+                        </span>
+                        <span className="text-neutral-600">
+                          Custo: <strong className="text-orange-600">R$ {(comparison.estimated_repair_cost || 0).toFixed(2)}</strong>
+                        </span>
+                      </div>
+                    )}
+                  </Link>
+                )
+              })}
+            </div>
+          )}
+        </Card>
+      </div>
+
       {/* Quick Actions */}
       <div className="px-4 sm:px-0">
         <h2 className="mb-4 sm:mb-6 text-lg sm:text-xl font-semibold text-neutral-900">
           Ações Rápidas
         </h2>
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           <Link href="/dashboard/properties/new">
             <Card className="group cursor-pointer border-neutral-200 bg-white p-4 sm:p-6 transition-all hover:border-primary-300 hover:shadow-md">
               <Building2 className="mb-3 h-7 w-7 sm:h-8 sm:w-8 text-primary-600" />
@@ -277,6 +362,18 @@ export default function DashboardPage() {
               </h3>
               <p className="mt-1 text-xs sm:text-sm text-neutral-600">
                 Comece uma nova vistoria agora
+              </p>
+            </Card>
+          </Link>
+
+          <Link href="/dashboard/comparisons/new">
+            <Card className="group cursor-pointer border-neutral-200 bg-white p-4 sm:p-6 transition-all hover:border-primary-300 hover:shadow-md">
+              <GitCompare className="mb-3 h-7 w-7 sm:h-8 sm:w-8 text-primary-600" />
+              <h3 className="text-sm sm:text-base font-semibold text-neutral-900">
+                Criar Comparação
+              </h3>
+              <p className="mt-1 text-xs sm:text-sm text-neutral-600">
+                Compare entrada e saída com IA
               </p>
             </Card>
           </Link>

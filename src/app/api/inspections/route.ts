@@ -14,8 +14,11 @@ const inspectionSchema = z.object({
   property_id: z.string().uuid(),
   type: z.enum(['move_in', 'move_out', 'periodic']),
   inspector_name: z.string().min(2),
+  inspector_email: z.string().email().optional().nullable(),
   tenant_name: z.string().optional().nullable(),
+  tenant_email: z.string().email().optional().nullable(),
   landlord_name: z.string().optional().nullable(),
+  landlord_email: z.string().email().optional().nullable(),
   scheduled_date: z.string().datetime(),
   notes: z.string().optional().nullable(),
 })
@@ -43,16 +46,17 @@ export async function GET(request: NextRequest) {
 
     // Get search params
     const searchParams = request.nextUrl.searchParams
-    const propertyId = searchParams.get('property_id')
+    const propertyId = searchParams.get('propertyId') || searchParams.get('property_id') // Aceita ambos
     const status = searchParams.get('status')
     const type = searchParams.get('type')
 
-    // Build query
+    // Build query - include photos count
     let query = supabase
       .from('inspections')
       .select(`
         *,
-        property:properties(id, name, address)
+        property:properties(id, name, address),
+        photos:inspection_photos(count)
       `)
       .eq('user_id', user.id)
       .is('deleted_at', null)
@@ -81,9 +85,16 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Map photos count to photos_count field
+    const inspectionsWithCount = inspections?.map((inspection: any) => ({
+      ...inspection,
+      photos_count: Array.isArray(inspection.photos) ? inspection.photos.length : 0,
+      photos: undefined, // Remove photos array to avoid confusion
+    })) || []
+
     return NextResponse.json({
-      inspections: inspections || [],
-      count: inspections?.length || 0,
+      inspections: inspectionsWithCount,
+      count: inspectionsWithCount.length,
     })
   } catch (error) {
     console.error('Error in GET /api/inspections:', error)
@@ -169,7 +180,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
+        { error: 'Validation error', details: error.issues },
         { status: 400 }
       )
     }

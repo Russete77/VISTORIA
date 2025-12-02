@@ -54,7 +54,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const formData = await request.formData()
     const file = formData.get('photo') as File
     const roomId = formData.get('room_id') as string
-    const roomName = (formData.get('room_name') || 'Sem nome') as string
+    const roomNameRaw = formData.get('room_name') as string
+    const roomName = (roomNameRaw || 'Sem nome').trim() // Trim whitespace to prevent matching issues
 
     // Get room category/type - handle 'undefined' string from frontend
     const roomCategoryRaw = formData.get('room_category') || formData.get('room_type')

@@ -3,6 +3,10 @@ import { auth } from '@clerk/nextjs/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { generateSatelitPDF } from '@/services/pdf-generator-satelit'
 import { canUseCredits, shouldSkipCreditDeduction } from '@/lib/auth/dev-access'
+import { sendEmail, validateEmails, formatDisplayName } from '@/lib/email/client'
+import LaudoProntoEmail from '@/lib/email/templates/laudo-pronto'
+import { format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 
 /**
  * POST /api/inspections/[id]/generate-report
@@ -178,6 +182,81 @@ export async function POST(
       })
 
       creditsRemaining = user.credits - 1
+    }
+
+    // Enviar email de notificação (não bloqueia se falhar)
+    try {
+      // Buscar email do usuário completo com nome
+      const { data: fullUser } = await supabase
+        .from('users')
+        .select('email, first_name, last_name, full_name')
+        .eq('id', user.id)
+        .single()
+
+      if (fullUser && fullUser.email && validateEmails(fullUser.email)) {
+        console.log(`[Email] Enviando notificação de laudo pronto para ${fullUser.email}`)
+
+        // Calcular estatísticas de problemas
+        const problemStats = {
+          total: inspection.total_problems || 0,
+          urgent: inspection.urgent_problems || 0,
+          high: inspection.high_problems || 0,
+          medium: inspection.medium_problems || 0,
+          low: inspection.low_problems || 0,
+        }
+
+        // Formatar data da vistoria
+        const inspectionDateFormatted = inspection.scheduled_date
+          ? format(new Date(inspection.scheduled_date), "dd 'de' MMMM 'de' yyyy", {
+              locale: ptBR,
+            })
+          : format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+
+        // Enviar email
+        const emailResult = await sendEmail({
+          to: fullUser.email,
+          subject: `Seu laudo está pronto! 📄 - ${inspection.property.name}`,
+          react: LaudoProntoEmail({
+            recipientName: formatDisplayName(
+              fullUser.full_name || fullUser.first_name || null
+            ),
+            propertyName: inspection.property.name,
+            propertyAddress: inspection.property.address,
+            inspectorName: inspection.inspector_name || user.email,
+            inspectionDate: inspectionDateFormatted,
+            inspectionType: inspection.type,
+            totalProblems: problemStats.total,
+            urgentProblems: problemStats.urgent,
+            highProblems: problemStats.high,
+            mediumProblems: problemStats.medium,
+            lowProblems: problemStats.low,
+            reportUrl: urlData.publicUrl,
+            inspectionId: id,
+          }),
+          tags: [
+            { name: 'tipo', value: 'laudo_pronto' },
+            { name: 'inspection_id', value: id },
+          ],
+        })
+
+        if (emailResult.success) {
+          console.log(
+            `[Email] Notificação enviada com sucesso (ID: ${emailResult.emailId})`
+          )
+        } else {
+          console.error(
+            `[Email] Falha ao enviar notificação: ${emailResult.error}`
+          )
+        }
+      } else {
+        console.warn(
+          `[Email] Email do usuário não encontrado ou inválido: ${fullUser?.email}`
+        )
+      }
+    } catch (emailError) {
+      // Log do erro mas NÃO bloqueia a geração do laudo
+      console.error('[Email] Erro ao enviar notificação:', emailError)
+      // Laudo foi gerado com sucesso, email é apenas uma notificação opcional
     }
 
     return NextResponse.json({

@@ -18,6 +18,16 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { IssueSeverity } from '@/components/vistoria/IssueSeverity'
 import { PhotoLightbox } from '@/components/ui/PhotoLightbox'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
 
 /**
@@ -31,6 +41,12 @@ interface Room {
   type: string
   order_index: number
   photos?: { count: number }[]
+}
+
+interface SuggestedRoom {
+  name: string
+  category: string
+  photo_count: number
 }
 
 interface Photo {
@@ -72,10 +88,15 @@ export default function InspectionCapturePage({ params }: InspectionCapturePageP
   const [photos, setPhotos] = useState<Photo[]>([])
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null)
   const [lightboxPhoto, setLightboxPhoto] = useState<{ url: string; alt: string } | null>(null)
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [isCompleting, setIsCompleting] = useState(false)
+  const [suggestedRooms, setSuggestedRooms] = useState<SuggestedRoom[]>([])
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false)
 
   useEffect(() => {
     fetchRooms()
     fetchPhotos()
+    fetchSuggestedRooms()
   }, [id])
 
   const fetchRooms = async () => {
@@ -110,13 +131,43 @@ export default function InspectionCapturePage({ params }: InspectionCapturePageP
     }
   }
 
+  const fetchSuggestedRooms = async () => {
+    setIsLoadingSuggestions(true)
+    try {
+      const response = await fetch(`/api/inspections/${id}/suggested-rooms`, {
+        credentials: 'include',
+      })
+      if (!response.ok) {
+        // Not an error if no suggestions found - just log it
+        console.log('No suggested rooms available')
+        return
+      }
+      const data = await response.json()
+      if (data.suggestions && data.suggestions.length > 0) {
+        setSuggestedRooms(data.suggestions)
+      }
+    } catch (error) {
+      console.error('Error fetching suggested rooms:', error)
+      // Don't show error toast - suggestions are optional
+    } finally {
+      setIsLoadingSuggestions(false)
+    }
+  }
+
+  const handleSuggestedRoomClick = (suggestion: SuggestedRoom) => {
+    setNewRoomName(suggestion.name)
+    setNewRoomType(suggestion.category)
+    toast.success(`"${suggestion.name}" preenchido automaticamente`)
+  }
+
   const handleCreateRoom = async () => {
     if (!newRoomName || !newRoomType) {
       toast.error('Preencha nome e tipo do cômodo')
       return
     }
 
-    if (newRoomName.trim().length < 2) {
+    const trimmedName = newRoomName.trim()
+    if (trimmedName.length < 2) {
       toast.error('Nome do cômodo deve ter pelo menos 2 caracteres')
       return
     }
@@ -127,7 +178,7 @@ export default function InspectionCapturePage({ params }: InspectionCapturePageP
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: newRoomName,
+          name: trimmedName, // Enviar nome já trimmed
           category: newRoomType,
         }),
       })
@@ -176,6 +227,44 @@ export default function InspectionCapturePage({ params }: InspectionCapturePageP
     }
   }
 
+  const handleComplete = async () => {
+    try {
+      setIsCompleting(true)
+
+      // Validar que tem pelo menos 1 foto
+      const totalPhotos = rooms.reduce((sum, room) => sum + (room.photos?.[0]?.count || 0), 0)
+      if (totalPhotos === 0) {
+        toast.error('Adicione pelo menos uma foto antes de concluir')
+        setShowConfirmDialog(false)
+        return
+      }
+
+      // Chamar API para mudar status para 'completed'
+      const response = await fetch(`/api/inspections/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'completed' }),
+        credentials: 'include',
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Erro ao concluir vistoria')
+      }
+
+      toast.success('Vistoria concluída com sucesso!')
+      setShowConfirmDialog(false)
+
+      // Redirecionar para a página de detalhes
+      router.push(`/dashboard/inspections/${id}`)
+    } catch (error) {
+      console.error('Error completing inspection:', error)
+      toast.error(error instanceof Error ? error.message : 'Erro ao concluir vistoria')
+    } finally {
+      setIsCompleting(false)
+    }
+  }
+
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files
     if (!files || files.length === 0 || !selectedRoom) return
@@ -190,7 +279,7 @@ export default function InspectionCapturePage({ params }: InspectionCapturePageP
       const formData = new FormData()
       formData.append('photo', file)
       formData.append('room_id', selectedRoom)
-      formData.append('room_name', room.name)
+      formData.append('room_name', room.name.trim()) // ✅ FIX: Garantir nome trimmed
       formData.append('room_type', room.type)
 
       const response = await fetch(`/api/inspections/${id}/photos`, {
@@ -228,6 +317,11 @@ export default function InspectionCapturePage({ params }: InspectionCapturePageP
     ? photos.filter((p: any) => p.room_name === currentRoom.name)
     : []
 
+  // Calcular estatísticas para o dialog de confirmação
+  const totalPhotos = rooms.reduce((sum, room) => sum + (room.photos?.[0]?.count || 0), 0)
+  const totalRooms = rooms.length
+  const roomsWithPhotos = rooms.filter((room) => (room.photos?.[0]?.count || 0) > 0).length
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -258,9 +352,22 @@ export default function InspectionCapturePage({ params }: InspectionCapturePageP
             <FileText className="mr-2 h-4 w-4" />
             Revisar Laudo
           </Button>
-          <Button onClick={() => router.push(`/dashboard/inspections/${id}`)} className="w-full sm:w-auto flex-shrink-0">
-            <Check className="mr-2 h-4 w-4" />
-            Concluir
+          <Button
+            onClick={() => setShowConfirmDialog(true)}
+            disabled={isCompleting}
+            className="w-full sm:w-auto flex-shrink-0"
+          >
+            {isCompleting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Concluindo...
+              </>
+            ) : (
+              <>
+                <Check className="mr-2 h-4 w-4" />
+                Concluir
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -300,13 +407,55 @@ export default function InspectionCapturePage({ params }: InspectionCapturePageP
               })}
             </div>
 
+            {/* Suggested Rooms from Move-In Inspection */}
+            {suggestedRooms.length > 0 && (
+              <div className="pt-4 border-t space-y-3">
+                <div className="flex items-center gap-2 text-sm font-medium text-neutral-700">
+                  <Sparkles className="h-4 w-4 text-primary-600" />
+                  <span>Cômodos da Vistoria de Entrada</span>
+                </div>
+                <p className="text-xs text-neutral-500">
+                  Clique para usar os mesmos nomes e garantir consistência na comparação
+                </p>
+                <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto">
+                  {suggestedRooms.map((suggestion, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleSuggestedRoomClick(suggestion)}
+                      className="flex items-center justify-between p-2.5 text-left bg-primary-50 hover:bg-primary-100 border border-primary-200 hover:border-primary-300 rounded-lg transition-all group"
+                      type="button"
+                    >
+                      <span className="text-sm font-medium text-neutral-800 group-hover:text-primary-700">
+                        {suggestion.name}
+                      </span>
+                      <Badge variant="secondary" className="text-xs">
+                        {suggestion.photo_count} {suggestion.photo_count === 1 ? 'foto' : 'fotos'}
+                      </Badge>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Add Room */}
             <div className="pt-4 border-t space-y-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-neutral-700">
+                <Plus className="h-4 w-4" />
+                <span>{suggestedRooms.length > 0 ? 'Ou adicionar novo cômodo' : 'Adicionar Cômodo'}</span>
+              </div>
               <Input
                 placeholder="Nome do cômodo"
                 value={newRoomName}
                 onChange={(e) => setNewRoomName(e.target.value)}
+                list="room-suggestions"
               />
+              {suggestedRooms.length > 0 && (
+                <datalist id="room-suggestions">
+                  {suggestedRooms.map((suggestion, index) => (
+                    <option key={index} value={suggestion.name} />
+                  ))}
+                </datalist>
+              )}
               <Select value={newRoomType} onValueChange={setNewRoomType}>
                 <SelectTrigger>
                   <SelectValue placeholder="Tipo" />
@@ -511,6 +660,66 @@ export default function InspectionCapturePage({ params }: InspectionCapturePageP
         photoAlt={lightboxPhoto?.alt || 'Foto da vistoria'}
         onClose={() => setLightboxPhoto(null)}
       />
+
+      {/* Confirm Complete Dialog */}
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Concluir Vistoria?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Após concluir, não será possível adicionar mais fotos. Você poderá gerar o laudo em PDF.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="my-4 space-y-2 text-sm">
+            <div className="flex justify-between py-2 border-b">
+              <span className="text-neutral-600">Total de cômodos:</span>
+              <span className="font-semibold">{totalRooms}</span>
+            </div>
+            <div className="flex justify-between py-2 border-b">
+              <span className="text-neutral-600">Cômodos com fotos:</span>
+              <span className="font-semibold">{roomsWithPhotos}</span>
+            </div>
+            <div className="flex justify-between py-2 border-b">
+              <span className="text-neutral-600">Total de fotos:</span>
+              <span className="font-semibold">{totalPhotos}</span>
+            </div>
+          </div>
+
+          {totalPhotos === 0 && (
+            <div className="p-3 bg-danger-50 border border-danger-200 rounded-md">
+              <p className="text-sm text-danger-700">
+                Você precisa adicionar pelo menos uma foto antes de concluir a vistoria.
+              </p>
+            </div>
+          )}
+
+          {totalPhotos > 0 && roomsWithPhotos < totalRooms && (
+            <div className="p-3 bg-warning-50 border border-warning-200 rounded-md">
+              <p className="text-sm text-warning-700">
+                Alguns cômodos ainda não têm fotos. Tem certeza que deseja continuar?
+              </p>
+            </div>
+          )}
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isCompleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleComplete}
+              disabled={isCompleting || totalPhotos === 0}
+            >
+              {isCompleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Concluindo...
+                </>
+              ) : (
+                'Sim, Concluir'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

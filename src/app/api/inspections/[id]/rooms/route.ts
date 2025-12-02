@@ -74,11 +74,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // Group by room_name to get unique rooms with photo count
     const roomsMap = new Map()
     photos?.forEach((photo, index) => {
-      const key = photo.room_name
+      const key = photo.room_name.trim() // Normalize key
       if (!roomsMap.has(key)) {
         roomsMap.set(key, {
-          id: `room-${photo.room_name.toLowerCase().replace(/\s+/g, '-')}`,
-          name: photo.room_name,
+          id: `room-${photo.room_name.trim().toLowerCase().replace(/\s+/g, '-')}`,
+          name: photo.room_name.trim(), // ✅ FIX: Sempre retornar nome trimmed
           type: photo.room_category || 'other',
           order_index: roomsMap.size,
           photos: [{ count: 0 }]
@@ -163,7 +163,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
+        { error: 'Validation error', details: error.issues },
         { status: 400 }
       )
     }

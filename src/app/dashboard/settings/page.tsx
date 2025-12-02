@@ -1,13 +1,18 @@
 'use client'
 
-import { useState } from 'react'
-import { User, Bell, Shield, Trash2, Download, Save } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { User, Bell, Shield, Trash2, Download, Save, Loader2, ExternalLink, Settings2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Switch } from '@/components/ui/switch'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Badge } from '@/components/ui/badge'
 import {
   Select,
   SelectContent,
@@ -15,70 +20,183 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
+import { toast } from 'sonner'
+import { useAuth } from '@/hooks/use-auth'
+import { useUserSettings, getStrictnessInfo } from '@/hooks/use-user-settings'
+import { PhotoUpload } from '@/components/settings/PhotoUpload'
+import { DeleteAccountDialog } from '@/components/settings/DeleteAccountDialog'
+import type { UserPreferences, AIStrictnessLevel } from '@/types/database'
 
 /**
  * Settings Page - VistorIA Pro
- * User profile, preferences, and account management
+ * User profile, preferences, features configuration, and account management
  */
 
-// Mock user data - replace with real user from Clerk/Supabase
-const mockUserData = {
-  first_name: 'João',
-  last_name: 'Silva',
-  email: 'joao.silva@exemplo.com',
-  image_url: null,
-  created_at: '2024-12-01T10:00:00Z',
-}
-
 export default function SettingsPage() {
+  const router = useRouter()
+  const { user: dbUser, clerkUser, isLoading: isAuthLoading, refreshUser } = useAuth()
+  const { settings: userSettings, loading: settingsLoading, updateSettings } = useUserSettings()
+
+  // Loading states
+  const [isSavingProfile, setIsSavingProfile] = useState(false)
+  const [isSavingPreferences, setIsSavingPreferences] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
+
   // Profile state
-  const [firstName, setFirstName] = useState(mockUserData.first_name)
-  const [lastName, setLastName] = useState(mockUserData.last_name)
-  const [email, setEmail] = useState(mockUserData.email)
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [imageUrl, setImageUrl] = useState<string | null>(null)
 
   // Preferences state
   const [language, setLanguage] = useState('pt-BR')
   const [emailNotifications, setEmailNotifications] = useState(true)
-  const [pushNotifications, setPushNotifications] = useState(true)
+  const [pushNotifications, setPushNotifications] = useState(false)
   const [marketingEmails, setMarketingEmails] = useState(false)
-  const [weeklyReports, setWeeklyReports] = useState(true)
+  const [weeklyReports, setWeeklyReports] = useState(false)
 
-  const handleSaveProfile = () => {
-    // TODO: Implement save profile
-    console.log('Saving profile:', { firstName, lastName, email })
+  // Sync user data to state when loaded
+  useEffect(() => {
+    if (dbUser) {
+      setFirstName(dbUser.first_name || '')
+      setLastName(dbUser.last_name || '')
+      setImageUrl(dbUser.image_url)
+
+      // Load preferences
+      const prefs = dbUser.preferences as UserPreferences | undefined
+      if (prefs) {
+        setLanguage(prefs.language || 'pt-BR')
+        setEmailNotifications(prefs.email_notifications ?? true)
+        setPushNotifications(prefs.push_notifications ?? false)
+        setMarketingEmails(prefs.marketing_emails ?? false)
+        setWeeklyReports(prefs.weekly_reports ?? false)
+      }
+    }
+  }, [dbUser])
+
+  const handleSaveProfile = async () => {
+    setIsSavingProfile(true)
+
+    try {
+      const response = await fetch('/api/user', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          first_name: firstName,
+          last_name: lastName,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to save profile')
+      }
+
+      await refreshUser()
+      toast.success('Perfil atualizado com sucesso!')
+    } catch (error) {
+      console.error('Save profile error:', error)
+      toast.error(error instanceof Error ? error.message : 'Erro ao salvar perfil')
+    } finally {
+      setIsSavingProfile(false)
+    }
   }
 
-  const handleSavePreferences = () => {
-    // TODO: Implement save preferences
-    console.log('Saving preferences:', {
-      language,
-      emailNotifications,
-      pushNotifications,
-      marketingEmails,
-      weeklyReports,
-    })
+  const handleSavePreferences = async () => {
+    setIsSavingPreferences(true)
+
+    try {
+      const preferences: UserPreferences = {
+        language,
+        email_notifications: emailNotifications,
+        push_notifications: pushNotifications,
+        marketing_emails: marketingEmails,
+        weekly_reports: weeklyReports,
+      }
+
+      const response = await fetch('/api/user', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          preferences,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to save preferences')
+      }
+
+      await refreshUser()
+      toast.success('Preferências salvas com sucesso!')
+    } catch (error) {
+      console.error('Save preferences error:', error)
+      toast.error(error instanceof Error ? error.message : 'Erro ao salvar preferências')
+    } finally {
+      setIsSavingPreferences(false)
+    }
   }
 
-  const handleExportData = () => {
-    // TODO: Implement data export
-    console.log('Exporting user data...')
+  const handleExportData = async () => {
+    setIsExporting(true)
+
+    try {
+      const response = await fetch('/api/user/export', {
+        method: 'POST',
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to export data')
+      }
+
+      // Download the JSON file
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `vistoria-pro-data-${Date.now()}.json`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+
+      toast.success('Dados exportados com sucesso!')
+    } catch (error) {
+      console.error('Export error:', error)
+      toast.error(error instanceof Error ? error.message : 'Erro ao exportar dados')
+    } finally {
+      setIsExporting(false)
+    }
   }
 
-  const handleDeleteAccount = () => {
-    // TODO: Implement account deletion
-    console.log('Deleting account...')
+  const handlePhotoUploadSuccess = (newImageUrl: string) => {
+    setImageUrl(newImageUrl)
+    refreshUser()
   }
+
+  const handleChangePassword = () => {
+    router.push('/user-profile')
+  }
+
+  // Show loading skeleton while auth or settings are loading
+  if (isAuthLoading || !dbUser || settingsLoading) {
+    return (
+      <div className="space-y-8">
+        <div>
+          <Skeleton className="h-9 w-48 mb-2" />
+          <Skeleton className="h-5 w-96" />
+        </div>
+        <Skeleton className="h-96 w-full" />
+      </div>
+    )
+  }
+
+  const userInitials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() || 'U'
+  const userEmail = dbUser.email
 
   return (
     <div className="space-y-8">
@@ -94,9 +212,10 @@ export default function SettingsPage() {
 
       {/* Settings Tabs */}
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
+        <TabsList className="grid w-full grid-cols-4 lg:w-[550px]">
           <TabsTrigger value="profile">Perfil</TabsTrigger>
           <TabsTrigger value="preferences">Preferências</TabsTrigger>
+          <TabsTrigger value="features">Funcionalidades</TabsTrigger>
           <TabsTrigger value="account">Conta</TabsTrigger>
         </TabsList>
 
@@ -111,20 +230,11 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Profile Photo */}
-              <div className="flex items-center gap-6">
-                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary-100 text-2xl font-semibold text-primary-700">
-                  {firstName.charAt(0)}{lastName.charAt(0)}
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-neutral-900 mb-1">Foto de Perfil</p>
-                  <p className="text-xs text-neutral-500 mb-3">
-                    JPG, PNG ou WEBP, máximo 2MB
-                  </p>
-                  <Button variant="outline" size="sm" disabled>
-                    Alterar Foto
-                  </Button>
-                </div>
-              </div>
+              <PhotoUpload
+                currentImageUrl={imageUrl}
+                userInitials={userInitials}
+                onUploadSuccess={handlePhotoUploadSuccess}
+              />
 
               {/* Name Fields */}
               <div className="grid gap-6 sm:grid-cols-2">
@@ -135,6 +245,7 @@ export default function SettingsPage() {
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     placeholder="Seu nome"
+                    disabled={isSavingProfile}
                   />
                 </div>
                 <div className="space-y-2">
@@ -144,43 +255,79 @@ export default function SettingsPage() {
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     placeholder="Seu sobrenome"
+                    disabled={isSavingProfile}
                   />
                 </div>
               </div>
 
-              {/* Email */}
+              {/* Email (readonly) */}
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
                   type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="seu@email.com"
+                  value={userEmail}
+                  disabled
+                  className="bg-neutral-50"
                 />
                 <p className="text-xs text-neutral-500">
-                  Este é o email usado para login e notificações
+                  Email não pode ser alterado. Gerenciado pelo Clerk.
                 </p>
               </div>
 
-              {/* Member Since */}
-              <div className="pt-4 border-t border-neutral-200">
-                <p className="text-sm text-neutral-600">
-                  Membro desde{' '}
+              {/* Account Info */}
+              <div className="pt-4 border-t border-neutral-200 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-neutral-600">Membro desde</span>
                   <span className="font-medium text-neutral-900">
                     {new Intl.DateTimeFormat('pt-BR', {
+                      day: 'numeric',
                       month: 'long',
                       year: 'numeric',
-                    }).format(new Date(mockUserData.created_at))}
+                    }).format(new Date(dbUser.created_at))}
                   </span>
-                </p>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-neutral-600">Último acesso</span>
+                  <span className="font-medium text-neutral-900">
+                    {dbUser.last_login_at
+                      ? new Intl.DateTimeFormat('pt-BR', {
+                          day: 'numeric',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        }).format(new Date(dbUser.last_login_at))
+                      : 'Nunca'}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-neutral-600">Plano</span>
+                  <span className="font-medium text-neutral-900 capitalize">
+                    {dbUser.tier === 'pay_per_use' ? 'Pay per Use' : dbUser.tier}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-neutral-600">Créditos</span>
+                  <span className="font-semibold text-primary-600">
+                    {dbUser.credits} {dbUser.credits === 1 ? 'crédito' : 'créditos'}
+                  </span>
+                </div>
               </div>
 
               {/* Save Button */}
               <div className="flex justify-end pt-4">
-                <Button onClick={handleSaveProfile}>
-                  <Save className="mr-2 h-4 w-4" />
-                  Salvar Alterações
+                <Button onClick={handleSaveProfile} disabled={isSavingProfile}>
+                  {isSavingProfile ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Salvar Alterações
+                    </>
+                  )}
                 </Button>
               </div>
             </CardContent>
@@ -197,7 +344,7 @@ export default function SettingsPage() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="language">Idioma</Label>
-                <Select value={language} onValueChange={setLanguage}>
+                <Select value={language} onValueChange={setLanguage} disabled={isSavingPreferences}>
                   <SelectTrigger id="language">
                     <SelectValue placeholder="Selecione o idioma" />
                   </SelectTrigger>
@@ -223,12 +370,12 @@ export default function SettingsPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Email Notifications */}
               <div className="flex items-start gap-3">
                 <Checkbox
                   id="emailNotifications"
                   checked={emailNotifications}
                   onCheckedChange={(checked) => setEmailNotifications(checked as boolean)}
+                  disabled={isSavingPreferences}
                 />
                 <div className="space-y-1">
                   <Label
@@ -243,12 +390,12 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {/* Push Notifications */}
               <div className="flex items-start gap-3">
                 <Checkbox
                   id="pushNotifications"
                   checked={pushNotifications}
                   onCheckedChange={(checked) => setPushNotifications(checked as boolean)}
+                  disabled={isSavingPreferences}
                 />
                 <div className="space-y-1">
                   <Label
@@ -263,12 +410,12 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {/* Marketing Emails */}
               <div className="flex items-start gap-3">
                 <Checkbox
                   id="marketingEmails"
                   checked={marketingEmails}
                   onCheckedChange={(checked) => setMarketingEmails(checked as boolean)}
+                  disabled={isSavingPreferences}
                 />
                 <div className="space-y-1">
                   <Label
@@ -283,12 +430,12 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {/* Weekly Reports */}
               <div className="flex items-start gap-3">
                 <Checkbox
                   id="weeklyReports"
                   checked={weeklyReports}
                   onCheckedChange={(checked) => setWeeklyReports(checked as boolean)}
+                  disabled={isSavingPreferences}
                 />
                 <div className="space-y-1">
                   <Label
@@ -307,11 +454,144 @@ export default function SettingsPage() {
 
           {/* Save Button */}
           <div className="flex justify-end">
-            <Button onClick={handleSavePreferences}>
-              <Save className="mr-2 h-4 w-4" />
-              Salvar Preferências
+            <Button onClick={handleSavePreferences} disabled={isSavingPreferences}>
+              {isSavingPreferences ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                <>
+                  <Save className="mr-2 h-4 w-4" />
+                  Salvar Preferências
+                </>
+              )}
             </Button>
           </div>
+        </TabsContent>
+
+        {/* Features Tab - NEW */}
+        <TabsContent value="features" className="space-y-6">
+          {/* Disputes Toggle */}
+          <Card className="border-neutral-200 bg-white">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-3">
+                <Settings2 className="h-5 w-5 text-primary-600" />
+                <div>
+                  <CardTitle className="text-lg font-semibold">Recursos do Sistema</CardTitle>
+                  <CardDescription className="mt-1">
+                    Configure quais funcionalidades estarão ativas
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Disputes Toggle */}
+              <div className="flex items-center justify-between py-4 border-b border-neutral-200">
+                <div className="space-y-1">
+                  <Label htmlFor="disputes-toggle" className="text-sm font-medium">
+                    Sistema de Contestações
+                  </Label>
+                  <p className="text-sm text-neutral-500">
+                    Permitir que locatários contestem itens das vistorias
+                  </p>
+                </div>
+                <Switch
+                  id="disputes-toggle"
+                  checked={userSettings?.disputes_enabled ?? true}
+                  onCheckedChange={(checked) =>
+                    updateSettings({ disputes_enabled: checked })
+                  }
+                  aria-label="Habilitar ou desabilitar contestações"
+                />
+              </div>
+
+              {/* AI Strictness Level */}
+              <div className="space-y-4 pt-2">
+                <div>
+                  <Label className="text-sm font-medium">Nível de Rigor da IA nas Vistorias</Label>
+                  <p className="text-sm text-neutral-500 mt-1">
+                    Define o padrão de análise da inteligência artificial para todas as vistorias
+                  </p>
+                </div>
+
+                <RadioGroup
+                  value={userSettings?.ai_inspection_strictness ?? 'standard'}
+                  onValueChange={(value) =>
+                    updateSettings({ ai_inspection_strictness: value as AIStrictnessLevel })
+                  }
+                  className="space-y-3"
+                >
+                  {/* Standard Level */}
+                  <label
+                    htmlFor="strictness-standard"
+                    className="flex items-start p-4 border-2 rounded-lg cursor-pointer hover:border-primary-300 transition-colors has-[:checked]:border-primary-600 has-[:checked]:bg-primary-50"
+                  >
+                    <RadioGroupItem value="standard" id="strictness-standard" className="mt-1" />
+                    <div className="ml-3 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg" aria-hidden="true">⚖️</span>
+                        <p className="font-semibold text-neutral-900">Padrão</p>
+                      </div>
+                      <p className="text-sm text-neutral-600 mt-1">
+                        Análise equilibrada. Detecta problemas evidentes e classifica com moderação.
+                      </p>
+                      <Badge variant="outline" className="mt-2">
+                        Recomendado para a maioria dos casos
+                      </Badge>
+                    </div>
+                  </label>
+
+                  {/* Strict Level */}
+                  <label
+                    htmlFor="strictness-strict"
+                    className="flex items-start p-4 border-2 rounded-lg cursor-pointer hover:border-primary-300 transition-colors has-[:checked]:border-primary-600 has-[:checked]:bg-primary-50"
+                  >
+                    <RadioGroupItem value="strict" id="strictness-strict" className="mt-1" />
+                    <div className="ml-3 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg" aria-hidden="true">🔍</span>
+                        <p className="font-semibold text-neutral-900">Rigoroso</p>
+                      </div>
+                      <p className="text-sm text-neutral-600 mt-1">
+                        Análise mais crítica. Detecta problemas menores e classifica com maior severidade.
+                      </p>
+                      <Badge variant="outline" className="mt-2">
+                        Para imóveis de alto valor
+                      </Badge>
+                    </div>
+                  </label>
+
+                  {/* Very Strict Level */}
+                  <label
+                    htmlFor="strictness-very-strict"
+                    className="flex items-start p-4 border-2 rounded-lg cursor-pointer hover:border-primary-300 transition-colors has-[:checked]:border-primary-600 has-[:checked]:bg-primary-50"
+                  >
+                    <RadioGroupItem value="very_strict" id="strictness-very-strict" className="mt-1" />
+                    <div className="ml-3 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg" aria-hidden="true">🔬</span>
+                        <p className="font-semibold text-neutral-900">Muito Rigoroso</p>
+                      </div>
+                      <p className="text-sm text-neutral-600 mt-1">
+                        Análise hiper-crítica. Detecta micro-detalhes e classifica com máxima severidade.
+                      </p>
+                      <Badge variant="outline" className="mt-2">
+                        Para locatários problemáticos
+                      </Badge>
+                    </div>
+                  </label>
+                </RadioGroup>
+
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-900">
+                    <strong>Nota:</strong> Esta é a configuração padrão. Você poderá ajustar o nível de rigor
+                    individualmente ao criar cada vistoria.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Account Tab */}
@@ -327,11 +607,20 @@ export default function SettingsPage() {
             <CardContent className="space-y-4">
               <p className="text-sm text-neutral-600">
                 Faça o download de todos os seus dados em formato JSON. Isso inclui propriedades,
-                vistorias, fotos e relatórios.
+                vistorias, fotos e relatórios. (LGPD/GDPR compliance)
               </p>
-              <Button variant="outline" onClick={handleExportData}>
-                <Download className="mr-2 h-4 w-4" />
-                Exportar Meus Dados
+              <Button variant="outline" onClick={handleExportData} disabled={isExporting}>
+                {isExporting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Exportando...
+                  </>
+                ) : (
+                  <>
+                    <Download className="mr-2 h-4 w-4" />
+                    Exportar Meus Dados
+                  </>
+                )}
               </Button>
             </CardContent>
           </Card>
@@ -350,7 +639,8 @@ export default function SettingsPage() {
                 <p className="text-sm text-neutral-600 mb-3">
                   Sua senha é gerenciada pelo Clerk. Use o botão abaixo para alterar.
                 </p>
-                <Button variant="outline" disabled>
+                <Button variant="outline" onClick={handleChangePassword}>
+                  <ExternalLink className="mr-2 h-4 w-4" />
                   Alterar Senha
                 </Button>
               </div>
@@ -362,7 +652,8 @@ export default function SettingsPage() {
                 <p className="text-sm text-neutral-600 mb-3">
                   Adicione uma camada extra de segurança à sua conta.
                 </p>
-                <Button variant="outline" disabled>
+                <Button variant="outline" onClick={handleChangePassword}>
+                  <ExternalLink className="mr-2 h-4 w-4" />
                   Configurar 2FA
                 </Button>
               </div>
@@ -385,37 +676,7 @@ export default function SettingsPage() {
                   Esta ação não pode ser desfeita.
                 </p>
 
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="outline" className="border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700">
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Deletar Minha Conta
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Você tem certeza absoluta?</AlertDialogTitle>
-                      <AlertDialogDescription className="space-y-2">
-                        <p>
-                          Esta ação não pode ser desfeita. Isso irá permanentemente deletar sua conta
-                          e remover todos os seus dados de nossos servidores.
-                        </p>
-                        <p className="font-semibold text-red-600">
-                          Todos os seus imóveis, vistorias, fotos e relatórios serão perdidos!
-                        </p>
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={handleDeleteAccount}
-                        className="bg-red-600 hover:bg-red-700"
-                      >
-                        Sim, deletar minha conta
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                <DeleteAccountDialog userEmail={userEmail} />
               </div>
             </CardContent>
           </Card>

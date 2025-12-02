@@ -143,9 +143,7 @@ export async function DELETE(
  */
 
 const updateSchema = z.object({
-  role: z.enum(['owner', 'admin', 'member', 'viewer'], {
-    errorMap: () => ({ message: 'Função inválida' }),
-  }),
+  role: z.enum(['owner', 'admin', 'member', 'viewer']),
 })
 
 export async function PATCH(
@@ -201,7 +199,7 @@ export async function PATCH(
 
     if (!validation.success) {
       return NextResponse.json(
-        { error: validation.error.errors[0].message },
+        { error: validation.error.issues[0].message },
         { status: 400 }
       )
     }

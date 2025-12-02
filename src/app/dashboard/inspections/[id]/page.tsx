@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Camera, Download, FileText, MapPin, Calendar, User, AlertCircle, Loader2 } from 'lucide-react'
+import { ArrowLeft, Camera, Download, FileText, MapPin, Calendar, User, AlertCircle, Loader2, Edit } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -165,6 +165,12 @@ export default function InspectionDetailsPage() {
           </div>
         </div>
         <div className="flex gap-3">
+          <Button variant="outline" asChild>
+            <Link href={`/dashboard/inspections/${inspection.id}/edit`}>
+              <Edit className="h-4 w-4 mr-2" />
+              Editar Vistoria
+            </Link>
+          </Button>
           {inspection.status !== 'completed' && inspection.status !== 'signed' && (
             <Button asChild>
               <Link href={`/dashboard/inspections/${inspection.id}/capture`}>
@@ -252,7 +258,8 @@ export default function InspectionDetailsPage() {
               <CardTitle>Informações da Vistoria</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-6">
+                {/* Data Agendada */}
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Calendar className="h-4 w-4" />
@@ -265,28 +272,47 @@ export default function InspectionDetailsPage() {
                   </p>
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <User className="h-4 w-4" />
-                    <span>Vistoriador</span>
-                  </div>
-                  <p className="font-medium">{inspection.inspector_name || 'Não informado'}</p>
-                </div>
+                {/* Participantes */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-neutral-900 border-b pb-2">
+                    Participantes
+                  </h3>
 
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <User className="h-4 w-4" />
-                    <span>Locatário</span>
+                  {/* Vistoriador */}
+                  <div className="space-y-2 pl-4 border-l-4 border-primary-600">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <User className="h-4 w-4" />
+                      <span className="font-medium">Vistoriador</span>
+                    </div>
+                    <p className="font-medium">{inspection.inspector_name || 'Não informado'}</p>
+                    {inspection.inspector_email && (
+                      <p className="text-sm text-muted-foreground">{inspection.inspector_email}</p>
+                    )}
                   </div>
-                  <p className="font-medium">{inspection.tenant_name || 'Não informado'}</p>
-                </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <User className="h-4 w-4" />
-                    <span>Proprietário</span>
+                  {/* Locatário */}
+                  <div className="space-y-2 pl-4 border-l-4 border-blue-500">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <User className="h-4 w-4" />
+                      <span className="font-medium">Locatário</span>
+                    </div>
+                    <p className="font-medium">{inspection.tenant_name || 'Não informado'}</p>
+                    {inspection.tenant_email && (
+                      <p className="text-sm text-muted-foreground">{inspection.tenant_email}</p>
+                    )}
                   </div>
-                  <p className="font-medium">{inspection.landlord_name || 'Não informado'}</p>
+
+                  {/* Proprietário */}
+                  <div className="space-y-2 pl-4 border-l-4 border-amber-500">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <User className="h-4 w-4" />
+                      <span className="font-medium">Proprietário</span>
+                    </div>
+                    <p className="font-medium">{inspection.landlord_name || 'Não informado'}</p>
+                    {inspection.landlord_email && (
+                      <p className="text-sm text-muted-foreground">{inspection.landlord_email}</p>
+                    )}
+                  </div>
                 </div>
               </div>
 

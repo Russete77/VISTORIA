@@ -364,4 +364,96 @@ export const ROUTES = {
   SETTINGS: '/settings',
   BILLING: '/billing',
   HELP: '/help',
+  DISPUTES: '/disputes',
+} as const
+
+// =============================================================================
+// Dispute Categories
+// =============================================================================
+
+export const DISPUTE_CATEGORIES = {
+  damage_assessment: {
+    label: 'Avaliação de Dano',
+    description: 'Contestação sobre a avaliação de danos no imóvel',
+    icon: '🔍',
+  },
+  missing_item: {
+    label: 'Item Ausente',
+    description: 'Contestação sobre item relatado como ausente',
+    icon: '📦',
+  },
+  cleaning_standard: {
+    label: 'Padrão de Limpeza',
+    description: 'Contestação sobre o padrão de limpeza exigido',
+    icon: '🧹',
+  },
+  appliance_condition: {
+    label: 'Condição de Equipamentos',
+    description: 'Contestação sobre a condição de eletrodomésticos',
+    icon: '⚙️',
+  },
+  general_condition: {
+    label: 'Condição Geral',
+    description: 'Contestação sobre a condição geral do imóvel',
+    icon: '🏠',
+  },
+  other: {
+    label: 'Outro',
+    description: 'Outras contestações',
+    icon: '💬',
+  },
+} as const
+
+// =============================================================================
+// Dispute Status
+// =============================================================================
+
+export const DISPUTE_STATUS = {
+  pending: {
+    label: 'Pendente',
+    description: 'Aguardando análise',
+    color: 'text-gray-700',
+    bgColor: 'bg-gray-100',
+    icon: '⏳',
+  },
+  under_review: {
+    label: 'Em Análise',
+    description: 'Contestação sendo analisada',
+    color: 'text-blue-700',
+    bgColor: 'bg-blue-100',
+    icon: '👀',
+  },
+  accepted: {
+    label: 'Aceita',
+    description: 'Contestação aceita',
+    color: 'text-green-700',
+    bgColor: 'bg-green-100',
+    icon: '✅',
+  },
+  rejected: {
+    label: 'Rejeitada',
+    description: 'Contestação rejeitada',
+    color: 'text-red-700',
+    bgColor: 'bg-red-100',
+    icon: '❌',
+  },
+  resolved: {
+    label: 'Resolvida',
+    description: 'Contestação resolvida',
+    color: 'text-purple-700',
+    bgColor: 'bg-purple-100',
+    icon: '🎯',
+  },
+} as const
+
+// =============================================================================
+// Dispute Configuration
+// =============================================================================
+
+export const DISPUTE_CONFIG = {
+  MAX_ATTACHMENTS_PER_DISPUTE: 5,
+  MAX_ATTACHMENT_SIZE: 10 * 1024 * 1024, // 10MB
+  ALLOWED_ATTACHMENT_TYPES: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'],
+  TOKEN_EXPIRY_DAYS: 90, // 90 days to access dispute
+  PROTOCOL_PREFIX: 'DISP',
 } as const

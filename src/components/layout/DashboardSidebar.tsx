@@ -13,14 +13,19 @@ import {
   LogOut,
   Menu,
   X,
+  GitCompare,
 } from 'lucide-react'
+import { useClerk, useUser } from '@clerk/nextjs'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { useAuth } from '@/hooks/use-auth'
+import Image from 'next/image'
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: Home },
   { name: 'Imóveis', href: '/dashboard/properties', icon: Building2 },
   { name: 'Vistorias', href: '/dashboard/inspections', icon: ClipboardCheck },
+  { name: 'Comparações', href: '/dashboard/comparisons', icon: GitCompare },
   { name: 'Equipe', href: '/dashboard/team', icon: Users },
   { name: 'Financeiro', href: '/dashboard/billing', icon: DollarSign },
   { name: 'Configurações', href: '/dashboard/settings', icon: Settings },
@@ -33,6 +38,30 @@ interface DashboardSidebarProps {
 export function DashboardSidebar({ className }: DashboardSidebarProps) {
   const pathname = usePathname()
   const [isMobileOpen, setIsMobileOpen] = useState(false)
+  const { signOut } = useClerk()
+  const { user: clerkUser } = useUser()
+  const { user: dbUser } = useAuth()
+
+  // Dados do usuário com fallback
+  const userName = dbUser?.full_name || clerkUser?.fullName || clerkUser?.firstName || 'Usuário'
+  const userEmail = dbUser?.email || clerkUser?.primaryEmailAddress?.emailAddress || ''
+  const userImage = dbUser?.image_url || clerkUser?.imageUrl
+
+  // Iniciais para avatar
+  const getInitials = (name: string) => {
+    const parts = name.split(' ')
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
+    }
+    return name.substring(0, 2).toUpperCase()
+  }
+
+  const userInitials = getInitials(userName)
+
+  const handleSignOut = async () => {
+    await signOut()
+    window.location.href = '/'
+  }
 
   return (
     <>
@@ -107,22 +136,36 @@ export function DashboardSidebar({ className }: DashboardSidebarProps) {
         {/* User Section */}
         <div className="border-t border-neutral-200 p-4">
           <div className="mb-3 flex items-center gap-3 rounded-lg bg-neutral-50 p-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-700">
-              JD
-            </div>
+            {/* Avatar com foto ou iniciais */}
+            {userImage ? (
+              <div className="relative h-10 w-10 overflow-hidden rounded-full">
+                <Image
+                  src={userImage}
+                  alt={userName}
+                  fill
+                  className="object-cover"
+                />
+              </div>
+            ) : (
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-700">
+                {userInitials}
+              </div>
+            )}
+
             <div className="flex-1 overflow-hidden">
               <p className="truncate text-sm font-medium text-neutral-900">
-                João Silva
+                {userName}
               </p>
               <p className="truncate text-xs text-neutral-500">
-                joao@exemplo.com
+                {userEmail}
               </p>
             </div>
           </div>
           <Button
             variant="ghost"
-            className="w-full justify-start gap-3 text-neutral-700"
+            className="w-full justify-start gap-3 text-neutral-700 hover:bg-neutral-100"
             size="sm"
+            onClick={handleSignOut}
           >
             <LogOut className="h-4 w-4" />
             Sair

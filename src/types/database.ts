@@ -40,6 +40,17 @@ export type TransactionType = 'credit_purchase' | 'subscription' | 'add_on'
 
 export type TransactionStatus = 'pending' | 'succeeded' | 'failed' | 'refunded'
 
+
+export type AIStrictnessLevel = 'standard' | 'strict' | 'very_strict'
+
+export interface UserSettings {
+  id: string
+  user_id: string
+  disputes_enabled: boolean
+  ai_inspection_strictness: AIStrictnessLevel
+  created_at: string
+  updated_at: string
+}
 export interface UserPreferences {
   language?: string
   email_notifications?: boolean
@@ -110,8 +121,11 @@ export interface Inspection {
   type: InspectionType
   status: InspectionStatus
   inspector_name: string | null
+  inspector_email: string | null
   tenant_name: string | null
+  tenant_email: string | null
   landlord_name: string | null
+  landlord_email: string | null
   scheduled_date: string | null
   started_at: string | null
   completed_at: string | null
@@ -127,6 +141,8 @@ export interface Inspection {
   low_problems: number
   charged_credits: number
   notes: string | null
+  ai_strictness_level: AIStrictnessLevel | null
+  photos_count?: number
   created_at: string
   updated_at: string
   deleted_at: string | null
@@ -254,6 +270,34 @@ export interface ComparisonWithDetails extends Comparison {
   differences: ComparisonDifference[]
 }
 
+// Input types for creating comparisons
+export interface CreateComparisonInput {
+  property_id: string
+  move_in_inspection_id: string
+  move_out_inspection_id: string
+}
+
+// Difference analysis result from AI
+export interface DifferenceAnalysisResult {
+  hasDifference: boolean
+  differences: Array<{
+    description: string
+    isNewDamage: boolean
+    isNaturalWear: boolean
+    severity: ProblemSeverity
+    estimatedCost: number
+    location: string
+  }>
+  overallAssessment: string
+  totalEstimatedCost: number
+}
+
+// Extended comparison with photo details
+export interface ComparisonDifferenceWithPhotos extends ComparisonDifference {
+  before_photo?: InspectionPhoto
+  after_photo?: InspectionPhoto
+}
+
 // Team Management Types
 export type TeamRole = 'owner' | 'admin' | 'member' | 'viewer'
 
@@ -312,4 +356,114 @@ export interface TeamMemberWithStats extends TeamMember {
 
 export interface TeamActivityWithMember extends TeamActivity {
   team_member: TeamMember | null
+}
+
+// Dispute Types
+export type DisputeCategory =
+  | 'damage_assessment'
+  | 'missing_item'
+  | 'cleaning_standard'
+  | 'appliance_condition'
+  | 'general_condition'
+  | 'other'
+
+export type DisputeStatus = 'pending' | 'under_review' | 'accepted' | 'rejected' | 'resolved'
+
+export type DisputeMessageAuthorType = 'tenant' | 'admin' | 'system'
+
+export type DisputeAttachmentUploadedBy = 'tenant' | 'admin'
+
+export interface Dispute {
+  id: string
+  inspection_id: string
+  user_id: string
+  protocol: string
+  tenant_name: string
+  tenant_email: string
+  tenant_phone: string | null
+  item_description: string
+  item_location: string | null
+  category: DisputeCategory
+  severity: ProblemSeverity
+  description: string
+  tenant_notes: string | null
+  status: DisputeStatus
+  resolution_notes: string | null
+  resolved_by: string | null
+  resolved_at: string | null
+  access_token: string
+  landlord_access_token: string | null
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+}
+
+export interface DisputeMessage {
+  id: string
+  dispute_id: string
+  author_type: DisputeMessageAuthorType
+  author_name: string | null
+  author_user_id: string | null
+  message: string
+  is_internal_note: boolean
+  created_at: string
+}
+
+export interface DisputeAttachment {
+  id: string
+  dispute_id: string
+  storage_path: string
+  file_name: string
+  file_size: number | null
+  mime_type: string | null
+  uploaded_by: DisputeAttachmentUploadedBy
+  description: string | null
+  created_at: string
+}
+
+// Extended types with relations
+export interface DisputeWithDetails extends Dispute {
+  inspection: Inspection
+  messages: DisputeMessage[]
+  attachments: DisputeAttachment[]
+}
+
+export interface DisputeWithInspection extends Dispute {
+  inspection: {
+    id: string
+    type: InspectionType
+    status: InspectionStatus
+    property: {
+      id: string
+      name: string
+      address: string
+    }
+  }
+}
+
+// Input types for creating disputes
+export interface CreateDisputeInput {
+  inspection_id: string
+  tenant_name: string
+  tenant_email: string
+  tenant_phone?: string
+  item_description: string
+  item_location?: string
+  category: DisputeCategory
+  severity: ProblemSeverity
+  description: string
+  tenant_notes?: string
+}
+
+export interface CreateDisputeMessageInput {
+  dispute_id: string
+  author_type: DisputeMessageAuthorType
+  author_name?: string
+  message: string
+  is_internal_note?: boolean
+}
+
+export interface UpdateDisputeStatusInput {
+  status: DisputeStatus
+  resolution_notes?: string
 }

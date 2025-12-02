@@ -174,7 +174,7 @@ export async function PATCH(request: NextRequest) {
     // Get user from database
     const { data: user } = await supabase
       .from('users')
-      .select('id')
+      .select('id, first_name, last_name')
       .eq('clerk_id', userId)
       .single()
 
@@ -233,7 +233,7 @@ export async function PATCH(request: NextRequest) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
+        { error: 'Validation error', details: error.issues },
         { status: 400 }
       )
     }
