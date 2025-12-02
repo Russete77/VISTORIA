@@ -30,12 +30,12 @@ export function DifferenceCard({ difference }: DifferenceCardProps) {
           </div>
           <div className="flex gap-2">
             {difference.is_new_damage && (
-              <Badge variant="destructive" className="text-xs">
+              <Badge variant="danger" className="text-xs">
                 Dano Novo
               </Badge>
             )}
             {difference.is_natural_wear && (
-              <Badge variant="secondary" className="bg-yellow-100 text-yellow-700 text-xs">
+              <Badge variant="outline" className="bg-yellow-100 text-yellow-700 text-xs">
                 Desgaste Natural
               </Badge>
             )}

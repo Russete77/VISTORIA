@@ -154,6 +154,22 @@ const styles = StyleSheet.create({
   },
 })
 
+// Helper function to get severity style
+const getSeverityStyle = (severity: string) => {
+  switch (severity) {
+    case 'low':
+      return styles.severityLow
+    case 'medium':
+      return styles.severityMedium
+    case 'high':
+      return styles.severityHigh
+    case 'urgent':
+      return styles.severityUrgent
+    default:
+      return {}
+  }
+}
+
 interface GeneratePDFOptions {
   inspection: any
   user: any
@@ -278,10 +294,7 @@ export async function generateInspectionPDF(options: GeneratePDFOptions): Promis
                             <View
                               style={[
                                 styles.severityBadge,
-                                problem.severity === 'low' && styles.severityLow,
-                                problem.severity === 'medium' && styles.severityMedium,
-                                problem.severity === 'high' && styles.severityHigh,
-                                problem.severity === 'urgent' && styles.severityUrgent,
+                                getSeverityStyle(problem.severity),
                               ]}
                             >
                               <Text>
@@ -310,10 +323,7 @@ export async function generateInspectionPDF(options: GeneratePDFOptions): Promis
                 <View
                   style={[
                     styles.severityBadge,
-                    issue.severity === 'low' && styles.severityLow,
-                    issue.severity === 'medium' && styles.severityMedium,
-                    issue.severity === 'high' && styles.severityHigh,
-                    issue.severity === 'urgent' && styles.severityUrgent,
+                    getSeverityStyle(issue.severity),
                   ]}
                 >
                   <Text>Gravidade: {severityLabels[issue.severity]}</Text>

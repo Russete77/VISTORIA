@@ -423,7 +423,15 @@ export interface DisputeAttachment {
 
 // Extended types with relations
 export interface DisputeWithDetails extends Dispute {
-  inspection: Inspection
+  inspection: Inspection & {
+    property?: {
+      id: string
+      name: string
+      address: string
+      city?: string
+      state?: string
+    }
+  }
   messages: DisputeMessage[]
   attachments: DisputeAttachment[]
 }

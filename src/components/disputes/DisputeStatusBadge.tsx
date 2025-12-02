@@ -11,7 +11,7 @@ const statusConfig: Record<
   DisputeStatus,
   {
     label: string
-    variant: 'default' | 'info' | 'success' | 'primary' | 'destructive'
+    variant: 'default' | 'info' | 'success' | 'primary' | 'danger'
     dotColor: string
     pulse?: boolean
   }
@@ -35,8 +35,8 @@ const statusConfig: Record<
   },
   rejected: {
     label: 'Rejeitada',
-    variant: 'destructive',
-    dotColor: 'bg-destructive-500',
+    variant: 'danger',
+    dotColor: 'bg-danger-500',
   },
   resolved: {
     label: 'Resolvida',

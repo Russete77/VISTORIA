@@ -487,16 +487,127 @@ async function processComparison(
 }
 
 /**
- * Normaliza o nome do cômodo para matching
- * Remove espaços extras e converte para lowercase
- * Usado APENAS para comparação/matching, não para exibição
+ * Calcula a distância de Levenshtein entre duas strings
+ * Usado para fuzzy matching de nomes de cômodos
  */
-function normalizeRoomName(name: string): string {
-  return name.trim().toLowerCase()
+function levenshteinDistance(str1: string, str2: string): number {
+  const m = str1.length
+  const n = str2.length
+
+  // Cria matriz de distâncias
+  const dp: number[][] = Array(m + 1)
+    .fill(null)
+    .map(() => Array(n + 1).fill(0))
+
+  // Inicializa primeira coluna
+  for (let i = 0; i <= m; i++) {
+    dp[i][0] = i
+  }
+
+  // Inicializa primeira linha
+  for (let j = 0; j <= n; j++) {
+    dp[0][j] = j
+  }
+
+  // Preenche a matriz
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (str1[i - 1] === str2[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1]
+      } else {
+        dp[i][j] = 1 + Math.min(
+          dp[i - 1][j],     // Deletion
+          dp[i][j - 1],     // Insertion
+          dp[i - 1][j - 1]  // Substitution
+        )
+      }
+    }
+  }
+
+  return dp[m][n]
 }
 
 /**
- * Agrupa fotos por cômodo para comparação
+ * Calcula a similaridade entre duas strings (0 a 1)
+ * 1 = strings idênticas, 0 = completamente diferentes
+ */
+function calculateSimilarity(str1: string, str2: string): number {
+  const maxLen = Math.max(str1.length, str2.length)
+  if (maxLen === 0) return 1
+
+  const distance = levenshteinDistance(str1, str2)
+  return 1 - distance / maxLen
+}
+
+/**
+ * Normaliza o nome do cômodo para matching
+ * Remove espaços extras, acentos e converte para lowercase
+ * Usado APENAS para comparação/matching, não para exibição
+ */
+function normalizeRoomName(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+    .replace(/[^a-z0-9\s]/g, '')     // Remove caracteres especiais
+    .replace(/\s+/g, ' ')             // Normaliza espaços múltiplos
+}
+
+/**
+ * Extrai a parte base do nome do cômodo (sem números)
+ * Ex: "quarto1" -> "quarto", "sala 2" -> "sala"
+ */
+function extractBaseName(name: string): string {
+  return name
+    .replace(/\d+/g, '')  // Remove números
+    .replace(/\s+/g, ' ') // Normaliza espaços
+    .trim()
+}
+
+/**
+ * Encontra o melhor match para um nome de cômodo
+ * Retorna o nome normalizado do cômodo mais similar ou null se não encontrar
+ */
+function findBestMatch(
+  roomName: string,
+  existingRooms: Map<string, { originalName: string; beforePhotos: InspectionPhoto[]; afterPhotos: InspectionPhoto[] }>,
+  threshold: number = 0.75 // 75% de similaridade mínima
+): string | null {
+  const normalizedName = normalizeRoomName(roomName)
+  const baseName = extractBaseName(normalizedName)
+
+  let bestMatch: string | null = null
+  let bestSimilarity = 0
+
+  for (const [existingNormalized, data] of existingRooms) {
+    // Primeiro, verifica match exato (já normalizado)
+    if (existingNormalized === normalizedName) {
+      return existingNormalized
+    }
+
+    // Calcula similaridade entre nomes completos
+    const fullSimilarity = calculateSimilarity(existingNormalized, normalizedName)
+
+    // Calcula similaridade entre bases (sem números)
+    const existingBase = extractBaseName(existingNormalized)
+    const baseSimilarity = calculateSimilarity(existingBase, baseName)
+
+    // Usa a maior similaridade entre os dois métodos
+    const similarity = Math.max(fullSimilarity, baseSimilarity)
+
+    if (similarity > bestSimilarity && similarity >= threshold) {
+      bestSimilarity = similarity
+      bestMatch = existingNormalized
+    }
+  }
+
+  return bestMatch
+}
+
+/**
+ * Agrupa fotos por cômodo para comparação com fuzzy matching
+ * Permite matching de nomes similares como "quarto1" vs "quarto", etc.
  */
 function matchPhotosByRoom(
   moveInPhotos: InspectionPhoto[],
@@ -515,7 +626,7 @@ function matchPhotosByRoom(
     }
   >()
 
-  // Agrupar fotos de entrada
+  // Agrupar fotos de entrada (usamos como referência)
   for (const photo of moveInPhotos) {
     const normalizedName = normalizeRoomName(photo.room_name)
     if (!roomMap.has(normalizedName)) {
@@ -528,23 +639,48 @@ function matchPhotosByRoom(
     roomMap.get(normalizedName)!.beforePhotos.push(photo)
   }
 
-  // Agrupar fotos de saída
+  console.log('[Fuzzy Match] Entry rooms:', Array.from(roomMap.keys()))
+
+  // Agrupar fotos de saída com fuzzy matching
   for (const photo of moveOutPhotos) {
     const normalizedName = normalizeRoomName(photo.room_name)
-    if (!roomMap.has(normalizedName)) {
+
+    // Primeiro, tenta match exato
+    if (roomMap.has(normalizedName)) {
+      roomMap.get(normalizedName)!.afterPhotos.push(photo)
+      console.log(`[Fuzzy Match] Exit photo "${photo.room_name}" -> exact match`)
+      continue
+    }
+
+    // Tenta fuzzy match
+    const bestMatch = findBestMatch(photo.room_name, roomMap)
+
+    if (bestMatch) {
+      console.log(`[Fuzzy Match] Exit photo "${photo.room_name}" -> fuzzy matched to "${roomMap.get(bestMatch)!.originalName}"`)
+      roomMap.get(bestMatch)!.afterPhotos.push(photo)
+    } else {
+      // Sem match, cria novo grupo
+      console.log(`[Fuzzy Match] Exit photo "${photo.room_name}" -> no match found, creating new group`)
       roomMap.set(normalizedName, {
-        originalName: photo.room_name, // Preservar nome original
+        originalName: photo.room_name,
         beforePhotos: [],
-        afterPhotos: []
+        afterPhotos: [photo]
       })
     }
-    roomMap.get(normalizedName)!.afterPhotos.push(photo)
   }
 
   // Converter para array usando nome original para exibição
-  return Array.from(roomMap.entries()).map(([normalizedName, photos]) => ({
-    roomName: photos.originalName, // Usar nome original, não normalizado
+  const result = Array.from(roomMap.entries()).map(([normalizedName, photos]) => ({
+    roomName: photos.originalName,
     beforePhotos: photos.beforePhotos,
     afterPhotos: photos.afterPhotos,
   }))
+
+  // Log do resultado final
+  console.log('[Fuzzy Match] Final matching result:')
+  for (const room of result) {
+    console.log(`  - "${room.roomName}": ${room.beforePhotos.length} before, ${room.afterPhotos.length} after`)
+  }
+
+  return result
 }

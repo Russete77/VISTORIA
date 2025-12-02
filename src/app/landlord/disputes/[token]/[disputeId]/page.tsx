@@ -120,12 +120,12 @@ export default function LandlordDisputeDetailPage() {
                   <Building2 className="h-5 w-5 text-neutral-400 mt-0.5" />
                   <div>
                     <p className="font-medium text-neutral-900">
-                      {dispute.inspection.property.name}
+                      {dispute.inspection.property?.name ?? 'N/A'}
                     </p>
                     <p className="text-sm text-neutral-600">
-                      {dispute.inspection.property.address}
+                      {dispute.inspection.property?.address ?? 'N/A'}
                     </p>
-                    {dispute.inspection.property.city && (
+                    {dispute.inspection.property?.city && (
                       <p className="text-sm text-neutral-600">
                         {dispute.inspection.property.city} - {dispute.inspection.property.state}
                       </p>

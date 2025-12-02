@@ -163,7 +163,6 @@ export function DeleteAccountDialog({ userEmail }: DeleteAccountDialogProps) {
             variant="destructive"
             onClick={handleDelete}
             disabled={!canDelete || isDeleting}
-            className="bg-red-600 hover:bg-red-700"
           >
             {isDeleting ? (
               <>

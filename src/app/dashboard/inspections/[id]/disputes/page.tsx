@@ -41,6 +41,11 @@ export default async function InspectionDisputesPage({ params }: PageProps) {
 
   if (!inspection) notFound()
 
+  // Cast property to single object (Supabase returns array for relations)
+  const property = Array.isArray(inspection.property)
+    ? inspection.property[0]
+    : inspection.property as { id: string; name: string; address: string }
+
   // Get disputes
   const { data: disputes } = await supabase
     .from('disputes')
@@ -72,7 +77,7 @@ export default async function InspectionDisputesPage({ params }: PageProps) {
           items={[
             { label: 'Dashboard', href: '/dashboard' },
             { label: 'Vistorias', href: '/dashboard/inspections' },
-            { label: inspection.property.name, href: `/dashboard/inspections/${inspectionId}` },
+            { label: property?.name || 'Vistoria', href: `/dashboard/inspections/${inspectionId}` },
             { label: 'Contestações' },
           ]}
         />
@@ -82,7 +87,7 @@ export default async function InspectionDisputesPage({ params }: PageProps) {
             <div>
               <h1 className="text-3xl font-bold text-neutral-900">Contestações</h1>
               <p className="text-neutral-600 mt-1">
-                {inspection.property.name}
+                {property?.name || 'Imóvel'}
               </p>
             </div>
           </div>

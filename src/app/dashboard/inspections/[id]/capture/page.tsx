@@ -398,7 +398,7 @@ export default function InspectionCapturePage({ params }: InspectionCapturePageP
                   >
                     <div className="flex items-center justify-between">
                       <span className="font-medium">{room.name}</span>
-                      <Badge variant="secondary">
+                      <Badge variant="outline">
                         {photoCount} {photoCount === 1 ? 'foto' : 'fotos'}
                       </Badge>
                     </div>
@@ -428,7 +428,7 @@ export default function InspectionCapturePage({ params }: InspectionCapturePageP
                       <span className="text-sm font-medium text-neutral-800 group-hover:text-primary-700">
                         {suggestion.name}
                       </span>
-                      <Badge variant="secondary" className="text-xs">
+                      <Badge variant="outline" className="text-xs">
                         {suggestion.photo_count} {suggestion.photo_count === 1 ? 'foto' : 'fotos'}
                       </Badge>
                     </button>

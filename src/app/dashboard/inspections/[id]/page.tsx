@@ -360,7 +360,7 @@ export default function InspectionDetailsPage() {
                     />
                     <h3 className="font-medium mb-1">{photo.room_name}</h3>
                     {photo.ai_analyzed && (
-                      <Badge variant={photo.ai_has_problems ? 'destructive' : 'default'}>
+                      <Badge variant={photo.ai_has_problems ? 'danger' : 'success'}>
                         {photo.ai_has_problems ? '⚠️ Problemas detectados' : '✅ OK'}
                       </Badge>
                     )}

@@ -66,7 +66,7 @@ export function ComparisonCard({ comparison, onDelete }: ComparisonCardProps) {
               {comparison.property.address}
             </p>
           </div>
-          <Badge className={status.color} variant="secondary">
+          <Badge className={status.color} variant="outline">
             <StatusIcon className="w-3 h-3 mr-1" />
             {status.label}
           </Badge>

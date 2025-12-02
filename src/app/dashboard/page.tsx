@@ -311,7 +311,7 @@ export default function DashboardPage() {
                       <h3 className="font-medium text-neutral-900">
                         {property?.name || 'Imóvel não encontrado'}
                       </h3>
-                      <Badge className={status.color} variant="secondary">
+                      <Badge className={status.color} variant="outline">
                         {status.label}
                       </Badge>
                     </div>

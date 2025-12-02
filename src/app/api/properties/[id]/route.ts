@@ -78,14 +78,19 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // Get inspection counts
     const { data: inspections } = await supabase
       .from('inspections')
-      .select('type, status')
+      .select('type, status, completed_at')
       .eq('property_id', id)
       .is('deleted_at', null)
+      .order('completed_at', { ascending: false })
 
     const moveInCount = inspections?.filter(i => i.type === 'move_in').length || 0
     const moveOutCount = inspections?.filter(i => i.type === 'move_out').length || 0
     const periodicCount = inspections?.filter(i => i.type === 'periodic').length || 0
     const totalInspections = inspections?.length || 0
+
+    // Get last inspection date
+    const lastInspection = inspections?.find(i => i.completed_at !== null)
+    const lastInspectionAt = lastInspection?.completed_at || null
 
     return NextResponse.json({
       property: {
@@ -94,6 +99,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         move_out_count: moveOutCount,
         periodic_count: periodicCount,
         total_inspections: totalInspections,
+        last_inspection_at: lastInspectionAt,
       }
     })
   } catch (error) {

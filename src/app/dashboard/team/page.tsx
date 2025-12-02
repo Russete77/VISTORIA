@@ -536,7 +536,7 @@ export default function TeamPage() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={member.status === 'active' ? 'default' : 'secondary'}>
+                          <Badge variant={member.status === 'active' ? 'default' : 'outline'}>
                             {member.status === 'active' ? (
                               <><CheckCircle2 className="h-3 w-3 mr-1" /> Ativo</>
                             ) : (

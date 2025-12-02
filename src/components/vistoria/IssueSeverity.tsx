@@ -7,6 +7,7 @@ interface IssueSeverityProps {
   severity: SeverityLevel
   className?: string
   showLabel?: boolean
+  size?: 'sm' | 'md' | 'lg'
 }
 
 const severityConfig: Record<SeverityLevel, {
@@ -51,29 +52,49 @@ const severityConfig: Record<SeverityLevel, {
 export function IssueSeverity({
   severity,
   className,
-  showLabel = true
+  showLabel = true,
+  size = 'md'
 }: IssueSeverityProps) {
   const config = severityConfig[severity]
   const Icon = config.icon
 
+  const sizeClasses = {
+    sm: 'px-1.5 py-1 gap-1',
+    md: 'px-2.5 py-1.5 gap-1.5',
+    lg: 'px-3 py-2 gap-2',
+  }
+
+  const iconSizes = {
+    sm: 'h-3 w-3',
+    md: 'h-4 w-4',
+    lg: 'h-5 w-5',
+  }
+
+  const textSizes = {
+    sm: 'text-[10px]',
+    md: 'text-xs',
+    lg: 'text-sm',
+  }
+
   return (
     <div
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5',
+        'inline-flex items-center rounded-md',
+        sizeClasses[size],
         config.bgColor,
         className
       )}
     >
       <Icon
         className={cn(
-          'h-4 w-4',
+          iconSizes[size],
           config.iconColor,
           config.pulse && 'animate-pulse'
         )}
         aria-hidden="true"
       />
       {showLabel && (
-        <span className={cn('text-xs font-medium', config.textColor)}>
+        <span className={cn('font-medium', textSizes[size], config.textColor)}>
           {config.label}
         </span>
       )}

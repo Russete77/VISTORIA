@@ -201,6 +201,12 @@ const styles = StyleSheet.create({
     fontSize: 9,
     lineHeight: 1.4,
   },
+  sectionSubtitle: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: '#DC2626',
+  },
   checkbox: {
     flexDirection: 'row',
     alignItems: 'center',

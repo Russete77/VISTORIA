@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, CreditCard, Check, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -16,7 +16,6 @@ import { toast } from 'sonner'
  */
 
 export default function PurchasePage() {
-  const searchParams = useSearchParams()
   const router = useRouter()
   const [credits, setCredits] = useState(10)
   const [isProcessing, setIsProcessing] = useState(false)

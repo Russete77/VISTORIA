@@ -260,7 +260,7 @@ export default function NewComparisonPage() {
                               Entrada
                             </Badge>
                             <Badge
-                              variant={inspection.status === 'completed' ? 'default' : 'secondary'}
+                              variant={inspection.status === 'completed' ? 'success' : 'warning'}
                               className={
                                 inspection.status === 'completed'
                                   ? 'bg-green-600 text-white'
@@ -348,7 +348,7 @@ export default function NewComparisonPage() {
                               Saída
                             </Badge>
                             <Badge
-                              variant={inspection.status === 'completed' ? 'default' : 'secondary'}
+                              variant={inspection.status === 'completed' ? 'success' : 'warning'}
                               className={
                                 inspection.status === 'completed'
                                   ? 'bg-green-600 text-white'

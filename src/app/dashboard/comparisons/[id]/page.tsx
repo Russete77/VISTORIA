@@ -8,7 +8,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { use } from 'react'
-import { ArrowLeft, Download, Mail, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, Download, Mail, Loader2, AlertCircle, CheckCircle2, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Breadcrumbs } from '@/components/ui/breadcrumbs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -17,6 +17,19 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ComparisonStats } from '@/components/comparison/ComparisonStats'
 import { DifferenceCard } from '@/components/comparison/DifferenceCard'
 import { useComparisons } from '@/hooks/use-comparisons'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
+import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import type { ComparisonWithDetails } from '@/types/database'
@@ -31,6 +44,98 @@ export default function ComparisonDetailPage({
   const [comparison, setComparison] = useState<ComparisonWithDetails | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // PDF & Email states
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
+  const [isSendingEmail, setIsSendingEmail] = useState(false)
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false)
+  const [emailRecipient, setEmailRecipient] = useState('')
+  const [includeLandlord, setIncludeLandlord] = useState(false)
+  const [includeTenant, setIncludeTenant] = useState(false)
+
+  // Generate PDF handler
+  const handleGeneratePDF = async () => {
+    if (!comparison) return
+
+    try {
+      setIsGeneratingPDF(true)
+      toast.info('Gerando PDF...')
+
+      const response = await fetch(`/api/comparisons/${comparison.id}/generate-pdf`, {
+        method: 'POST',
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Erro ao gerar PDF')
+      }
+
+      // Download the PDF
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `comparacao-${comparison.id.slice(0, 8)}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+
+      toast.success('PDF gerado com sucesso!')
+    } catch (err) {
+      console.error('Error generating PDF:', err)
+      toast.error(err instanceof Error ? err.message : 'Erro ao gerar PDF')
+    } finally {
+      setIsGeneratingPDF(false)
+    }
+  }
+
+  // Send Email handler
+  const handleSendEmail = async () => {
+    if (!comparison) return
+
+    const recipients: string[] = []
+    if (emailRecipient.trim()) {
+      recipients.push(emailRecipient.trim())
+    }
+
+    if (recipients.length === 0 && !includeLandlord && !includeTenant) {
+      toast.error('Adicione pelo menos um destinatário')
+      return
+    }
+
+    try {
+      setIsSendingEmail(true)
+      toast.info('Enviando email...')
+
+      const response = await fetch(`/api/comparisons/${comparison.id}/send-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipients,
+          includePropertyOwner: includeLandlord,
+          includeTenant,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao enviar email')
+      }
+
+      toast.success(data.message || 'Email enviado com sucesso!')
+      setEmailDialogOpen(false)
+      setEmailRecipient('')
+      setIncludeLandlord(false)
+      setIncludeTenant(false)
+    } catch (err) {
+      console.error('Error sending email:', err)
+      toast.error(err instanceof Error ? err.message : 'Erro ao enviar email')
+    } finally {
+      setIsSendingEmail(false)
+    }
+  }
 
   useEffect(() => {
     async function fetchComparison() {
@@ -118,7 +223,7 @@ export default function ComparisonDetailPage({
               <h1 className="text-3xl font-bold tracking-tight">
                 {comparison.property.name}
               </h1>
-              <Badge className={status.color} variant="secondary">
+              <Badge className={status.color} variant="default">
                 {status.label}
               </Badge>
             </div>
@@ -131,13 +236,108 @@ export default function ComparisonDetailPage({
           </div>
 
           <div className="flex gap-2">
-            <Button variant="outline" disabled>
-              <Mail className="w-4 h-4 mr-2" />
-              Enviar Email
-            </Button>
-            <Button variant="outline" disabled>
-              <Download className="w-4 h-4 mr-2" />
-              Gerar PDF
+            {/* Email Dialog */}
+            <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  disabled={comparison.status !== 'completed'}
+                >
+                  <Mail className="w-4 h-4 mr-2" />
+                  Enviar Email
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Enviar Relatório por Email</DialogTitle>
+                  <DialogDescription>
+                    Envie o relatório de comparação para os interessados.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="email">Email adicional</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="email@exemplo.com"
+                      value={emailRecipient}
+                      onChange={(e) => setEmailRecipient(e.target.value)}
+                    />
+                  </div>
+
+                  {comparison.move_out_inspection.landlord_email && (
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="landlord"
+                        checked={includeLandlord}
+                        onCheckedChange={(checked) => setIncludeLandlord(checked as boolean)}
+                      />
+                      <Label htmlFor="landlord" className="text-sm">
+                        Incluir proprietário ({comparison.move_out_inspection.landlord_email})
+                      </Label>
+                    </div>
+                  )}
+
+                  {comparison.move_out_inspection.tenant_email && (
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="tenant"
+                        checked={includeTenant}
+                        onCheckedChange={(checked) => setIncludeTenant(checked as boolean)}
+                      />
+                      <Label htmlFor="tenant" className="text-sm">
+                        Incluir inquilino ({comparison.move_out_inspection.tenant_email})
+                      </Label>
+                    </div>
+                  )}
+                </div>
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setEmailDialogOpen(false)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleSendEmail}
+                    disabled={isSendingEmail}
+                  >
+                    {isSendingEmail ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Enviando...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4 mr-2" />
+                        Enviar
+                      </>
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            {/* Generate PDF Button */}
+            <Button
+              variant="outline"
+              onClick={handleGeneratePDF}
+              disabled={isGeneratingPDF || comparison.status !== 'completed'}
+            >
+              {isGeneratingPDF ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Gerando...
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4 mr-2" />
+                  Gerar PDF
+                </>
+              )}
             </Button>
           </div>
         </div>

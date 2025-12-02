@@ -52,16 +52,18 @@ const propertyTypeLabels = {
   other: 'Outro',
 }
 
-const statusLabels = {
+const statusLabels: Record<string, string> = {
   active: 'Ativo',
   inactive: 'Inativo',
   pending: 'Pendente',
+  archived: 'Arquivado',
 }
 
-const statusColors = {
+const statusColors: Record<string, string> = {
   active: 'bg-success-100 text-success-700',
   inactive: 'bg-neutral-100 text-neutral-700',
   pending: 'bg-warning-100 text-warning-700',
+  archived: 'bg-neutral-200 text-neutral-600',
 }
 
 export default function PropertyDetailPage({ params }: PropertyDetailPageProps) {
@@ -274,10 +276,10 @@ export default function PropertyDetailPage({ params }: PropertyDetailPageProps) 
                   <p className="text-sm font-medium text-neutral-600 mb-2">Características</p>
                   <div className="flex gap-2">
                     {property.has_elevator && (
-                      <Badge variant="secondary">Elevador</Badge>
+                      <Badge variant="outline">Elevador</Badge>
                     )}
                     {property.is_furnished && (
-                      <Badge variant="secondary">Mobiliado</Badge>
+                      <Badge variant="outline">Mobiliado</Badge>
                     )}
                   </div>
                 </div>
@@ -376,8 +378,8 @@ export default function PropertyDetailPage({ params }: PropertyDetailPageProps) 
               <div className="pt-3 border-t">
                 <p className="text-sm font-medium text-neutral-600 mb-1">Última Vistoria</p>
                 <p className="text-base text-neutral-700">
-                  {property.last_inspection_at
-                    ? new Date(property.last_inspection_at).toLocaleDateString('pt-BR')
+                  {(property as any).last_inspection_at
+                    ? new Date((property as any).last_inspection_at).toLocaleDateString('pt-BR')
                     : 'Nenhuma vistoria'}
                 </p>
               </div>

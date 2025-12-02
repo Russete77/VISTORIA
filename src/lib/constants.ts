@@ -108,6 +108,7 @@ export const PROPERTY_TYPES: Record<PropertyType, string> = {
   house: 'Casa',
   commercial: 'Comercial',
   land: 'Terreno',
+  other: 'Outro',
 }
 
 export const ROOM_CATEGORIES: Record<RoomCategory, string> = {

@@ -297,7 +297,7 @@ export default function BillingPage() {
                 </TableRow>
               ) : (
                 data.transactions.map((transaction: any) => {
-                  const statusConfig = statusBadgeConfig[transaction.status]
+                  const statusConfig = statusBadgeConfig[transaction.status as TransactionStatus]
                   return (
                     <TableRow key={transaction.id}>
                       <TableCell className="font-medium">
@@ -309,7 +309,7 @@ export default function BillingPage() {
                       </TableCell>
                       <TableCell>
                         <span className="text-sm text-neutral-600">
-                          {typeLabels[transaction.type]}
+                          {typeLabels[transaction.type as TransactionType]}
                         </span>
                       </TableCell>
                       <TableCell>{transaction.product_name}</TableCell>
