@@ -43,8 +43,12 @@ export async function POST(req: Request) {
   }
 
   try {
-    // Pass the raw signature header string to svix verify
-    evt = wh.verify(body, svixSignature as string) as typeof evt
+    // Pass svix headers object to svix verify (types require header map)
+    evt = wh.verify(body, {
+      'svix-id': svixId as string,
+      'svix-timestamp': svixTimestamp as string,
+      'svix-signature': svixSignature as string,
+    }) as typeof evt
   } catch (err: any) {
     console.error('Error verifying webhook:', err?.message || err)
     return NextResponse.json(
