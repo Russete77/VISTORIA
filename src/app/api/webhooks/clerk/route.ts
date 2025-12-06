@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { Webhook } from 'svix'
 import { createAdminClient } from '@/lib/supabase/server'
 
-export const runtime = 'node'
+export const runtime = 'nodejs'
 
 export async function POST(req: Request) {
   const WEBHOOK_SECRET = (process.env.CLERK_WEBHOOK_SECRET || '').trim()
