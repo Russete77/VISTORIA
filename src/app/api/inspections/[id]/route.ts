@@ -205,7 +205,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
-      .select()
+      .select('*, property_id, type')
       .single()
 
     if (error) {
@@ -214,6 +214,99 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         { error: 'Failed to update inspection' },
         { status: 500 }
       )
+    }
+
+    // AUTO-COMPARISON: Automatically create comparison when checkout inspection is completed
+    if (
+      validatedData.status === 'completed' &&
+      inspection.type === 'move_out' &&
+      existingInspection.status !== 'completed'
+    ) {
+      console.log(`[Auto-Comparison] Move-out inspection ${id} completed, checking for move-in...`)
+
+      // Find matching move-in inspection for the same property
+      const { data: moveInInspection } = await supabase
+        .from('inspections')
+        .select('id, status')
+        .eq('property_id', inspection.property_id)
+        .eq('type', 'move_in')
+        .eq('status', 'completed')
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (moveInInspection) {
+        console.log(`[Auto-Comparison] Found move-in inspection ${moveInInspection.id}`)
+
+        // Check if comparison already exists
+        const { data: existingComparison } = await supabase
+          .from('comparisons')
+          .select('id')
+          .eq('move_in_inspection_id', moveInInspection.id)
+          .eq('move_out_inspection_id', id)
+          .maybeSingle()
+
+        if (!existingComparison) {
+          // Check user credits
+          const { data: userWithCredits } = await supabase
+            .from('users')
+            .select('credits')
+            .eq('id', user.id)
+            .single()
+
+          if (userWithCredits && userWithCredits.credits >= 1) {
+            console.log(`[Auto-Comparison] User has ${userWithCredits.credits} credits, creating comparison...`)
+
+            // Check both inspections have photos
+            const { count: moveInCount } = await supabase
+              .from('inspection_photos')
+              .select('*', { count: 'exact', head: true })
+              .eq('inspection_id', moveInInspection.id)
+              .is('deleted_at', null)
+
+            const { count: moveOutCount } = await supabase
+              .from('inspection_photos')
+              .select('*', { count: 'exact', head: true })
+              .eq('inspection_id', id)
+              .is('deleted_at', null)
+
+            if (moveInCount && moveInCount > 0 && moveOutCount && moveOutCount > 0) {
+              // Create comparison automatically
+              const { data: newComparison, error: comparisonError } = await supabase
+                .from('comparisons')
+                .insert({
+                  user_id: user.id,
+                  property_id: inspection.property_id,
+                  move_in_inspection_id: moveInInspection.id,
+                  move_out_inspection_id: id,
+                  status: 'processing',
+                })
+                .select()
+                .single()
+
+              if (!comparisonError && newComparison) {
+                console.log(`[Auto-Comparison] Created comparison ${newComparison.id}, starting background processing...`)
+
+                // Process comparison in background (import from comparisons route)
+                // Note: This will be handled by a separate background job or trigger
+                // For now, we just create the comparison record
+                // The user can manually trigger processing or we can add a cron job
+              } else {
+                console.error('[Auto-Comparison] Error creating comparison:', comparisonError)
+              }
+            } else {
+              console.log(`[Auto-Comparison] Skipping: Not enough photos (move-in: ${moveInCount}, move-out: ${moveOutCount})`)
+            }
+          } else {
+            console.log(`[Auto-Comparison] Skipping: Insufficient credits (${userWithCredits?.credits || 0})`)
+          }
+        } else {
+          console.log(`[Auto-Comparison] Comparison already exists: ${existingComparison.id}`)
+        }
+      } else {
+        console.log('[Auto-Comparison] No completed move-in inspection found for this property')
+      }
     }
 
     return NextResponse.json({

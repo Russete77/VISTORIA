@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { User, Bell, Shield, Trash2, Download, Save, Loader2, ExternalLink, Settings2 } from 'lucide-react'
+import { User, Bell, Shield, Trash2, Download, Save, Loader2, ExternalLink, Settings2, Palette, Building2, Upload, X, MapPin, DollarSign } from 'lucide-react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -54,6 +55,21 @@ export default function SettingsPage() {
   const [marketingEmails, setMarketingEmails] = useState(false)
   const [weeklyReports, setWeeklyReports] = useState(false)
 
+  // Branding state
+  const [companyName, setCompanyName] = useState('')
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [brandPrimaryColor, setBrandPrimaryColor] = useState('#1a56db')
+  const [brandSecondaryColor, setBrandSecondaryColor] = useState('#f3f4f6')
+  const [pdfFooterText, setPdfFooterText] = useState('')
+  const [showPoweredBy, setShowPoweredBy] = useState(true)
+  const [isSavingBranding, setIsSavingBranding] = useState(false)
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false)
+
+  // Regional settings state
+  const [defaultRegion, setDefaultRegion] = useState('sp_capital')
+  const [regions, setRegions] = useState<{ code: string; name: string; state: string | null }[]>([])
+  const [loadingRegions, setLoadingRegions] = useState(false)
+
   // Sync user data to state when loaded
   useEffect(() => {
     if (dbUser) {
@@ -72,6 +88,38 @@ export default function SettingsPage() {
       }
     }
   }, [dbUser])
+
+  // Sync branding and regional settings from settings
+  useEffect(() => {
+    if (userSettings) {
+      setCompanyName(userSettings.company_name || '')
+      setLogoUrl(userSettings.logo_url || null)
+      setBrandPrimaryColor(userSettings.brand_primary_color || '#1a56db')
+      setBrandSecondaryColor(userSettings.brand_secondary_color || '#f3f4f6')
+      setPdfFooterText(userSettings.pdf_footer_text || '')
+      setShowPoweredBy(userSettings.show_powered_by ?? true)
+      setDefaultRegion(userSettings.default_region || 'sp_capital')
+    }
+  }, [userSettings])
+
+  // Fetch available regions
+  useEffect(() => {
+    const fetchRegions = async () => {
+      setLoadingRegions(true)
+      try {
+        const response = await fetch('/api/costs/regions')
+        if (response.ok) {
+          const data = await response.json()
+          setRegions(data.regions || [])
+        }
+      } catch (error) {
+        console.error('Error fetching regions:', error)
+      } finally {
+        setLoadingRegions(false)
+      }
+    }
+    fetchRegions()
+  }, [])
 
   const handleSaveProfile = async () => {
     setIsSavingProfile(true)
@@ -182,6 +230,85 @@ export default function SettingsPage() {
     router.push('/user-profile')
   }
 
+  const handleSaveBranding = async () => {
+    setIsSavingBranding(true)
+
+    try {
+      await updateSettings({
+        company_name: companyName || null,
+        logo_url: logoUrl,
+        brand_primary_color: brandPrimaryColor,
+        brand_secondary_color: brandSecondaryColor,
+        pdf_footer_text: pdfFooterText || null,
+        show_powered_by: showPoweredBy,
+      })
+
+      toast.success('Configurações de marca salvas com sucesso!')
+    } catch (error) {
+      console.error('Save branding error:', error)
+      toast.error(error instanceof Error ? error.message : 'Erro ao salvar configurações')
+    } finally {
+      setIsSavingBranding(false)
+    }
+  }
+
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    // Validate file
+    if (!file.type.startsWith('image/')) {
+      toast.error('Por favor, selecione um arquivo de imagem')
+      return
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('O logo deve ter no máximo 2MB')
+      return
+    }
+
+    setIsUploadingLogo(true)
+
+    try {
+      const formData = new FormData()
+      formData.append('logo', file)
+
+      const response = await fetch('/api/user/logo', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Falha ao enviar logo')
+      }
+
+      const data = await response.json()
+      setLogoUrl(data.logo_url)
+      toast.success('Logo enviado com sucesso!')
+    } catch (error) {
+      console.error('Logo upload error:', error)
+      toast.error(error instanceof Error ? error.message : 'Erro ao enviar logo')
+    } finally {
+      setIsUploadingLogo(false)
+    }
+  }
+
+  const handleRemoveLogo = () => {
+    setLogoUrl(null)
+  }
+
+  const handleRegionChange = async (regionCode: string) => {
+    setDefaultRegion(regionCode)
+    try {
+      await updateSettings({ default_region: regionCode })
+      toast.success('Região atualizada com sucesso!')
+    } catch (error) {
+      console.error('Error saving region:', error)
+      toast.error('Erro ao atualizar região')
+    }
+  }
+
   // Show loading skeleton while auth or settings are loading
   if (isAuthLoading || !dbUser || settingsLoading) {
     return (
@@ -212,12 +339,16 @@ export default function SettingsPage() {
 
       {/* Settings Tabs */}
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 lg:w-[550px]">
-          <TabsTrigger value="profile">Perfil</TabsTrigger>
-          <TabsTrigger value="preferences">Preferências</TabsTrigger>
-          <TabsTrigger value="features">Funcionalidades</TabsTrigger>
-          <TabsTrigger value="account">Conta</TabsTrigger>
-        </TabsList>
+        {/* Tabs responsivas - scroll horizontal no mobile */}
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <TabsList className="inline-flex w-auto min-w-full sm:grid sm:w-full sm:grid-cols-5 lg:w-[650px]">
+            <TabsTrigger value="profile" className="whitespace-nowrap">Perfil</TabsTrigger>
+            <TabsTrigger value="branding" className="whitespace-nowrap">Marca</TabsTrigger>
+            <TabsTrigger value="preferences" className="whitespace-nowrap">Preferências</TabsTrigger>
+            <TabsTrigger value="features" className="whitespace-nowrap">Funcionalidades</TabsTrigger>
+            <TabsTrigger value="account" className="whitespace-nowrap">Conta</TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Profile Tab */}
         <TabsContent value="profile" className="space-y-6">
@@ -332,6 +463,245 @@ export default function SettingsPage() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Branding Tab */}
+        <TabsContent value="branding" className="space-y-6">
+          <Card className="border-neutral-200 bg-white">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-3">
+                <Building2 className="h-5 w-5 text-primary-600" />
+                <div>
+                  <CardTitle className="text-lg font-semibold">Identidade da Empresa</CardTitle>
+                  <CardDescription className="mt-1">
+                    Personalize seus laudos com sua marca
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Company Name */}
+              <div className="space-y-2">
+                <Label htmlFor="companyName">Nome da Empresa</Label>
+                <Input
+                  id="companyName"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  placeholder="Sua Imobiliária Ltda."
+                  disabled={isSavingBranding}
+                  maxLength={100}
+                />
+                <p className="text-xs text-neutral-500">
+                  Aparece no cabeçalho dos laudos PDF
+                </p>
+              </div>
+
+              {/* Logo Upload */}
+              <div className="space-y-2">
+                <Label>Logo da Empresa</Label>
+                <div className="flex items-start gap-4">
+                  <div className="w-24 h-24 rounded-lg border-2 border-dashed border-neutral-300 flex items-center justify-center bg-neutral-50 overflow-hidden">
+                    {logoUrl ? (
+                      <img
+                        src={logoUrl}
+                        alt="Logo da empresa"
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <Building2 className="h-8 w-8 text-neutral-400" />
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div className="flex gap-2">
+                      <label className="cursor-pointer">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleLogoUpload}
+                          className="hidden"
+                          disabled={isUploadingLogo}
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          asChild
+                          disabled={isUploadingLogo}
+                        >
+                          <span>
+                            {isUploadingLogo ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <Upload className="mr-2 h-4 w-4" />
+                            )}
+                            {isUploadingLogo ? 'Enviando...' : 'Enviar Logo'}
+                          </span>
+                        </Button>
+                      </label>
+                      {logoUrl && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleRemoveLogo}
+                          className="text-danger-600 hover:text-danger-700 hover:bg-danger-50"
+                        >
+                          <X className="mr-1 h-4 w-4" />
+                          Remover
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-xs text-neutral-500">
+                      PNG, JPG ou SVG. Máximo 2MB. Recomendado: 200x200px
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* PDF Footer Text */}
+              <div className="space-y-2">
+                <Label htmlFor="pdfFooterText">Texto do Rodapé do PDF</Label>
+                <Input
+                  id="pdfFooterText"
+                  value={pdfFooterText}
+                  onChange={(e) => setPdfFooterText(e.target.value)}
+                  placeholder="Documento gerado por Sua Imobiliária - CRECI: 12345"
+                  disabled={isSavingBranding}
+                  maxLength={500}
+                />
+                <p className="text-xs text-neutral-500">
+                  Aparece no rodapé de todas as páginas do laudo
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-neutral-200 bg-white">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-3">
+                <Palette className="h-5 w-5 text-primary-600" />
+                <div>
+                  <CardTitle className="text-lg font-semibold">Cores da Marca</CardTitle>
+                  <CardDescription className="mt-1">
+                    Personalize as cores dos seus laudos
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid gap-6 sm:grid-cols-2">
+                {/* Primary Color */}
+                <div className="space-y-2">
+                  <Label htmlFor="brandPrimaryColor">Cor Primária</Label>
+                  <div className="flex gap-2">
+                    <input
+                      type="color"
+                      id="brandPrimaryColor"
+                      value={brandPrimaryColor}
+                      onChange={(e) => setBrandPrimaryColor(e.target.value)}
+                      className="w-12 h-10 rounded border border-neutral-300 cursor-pointer"
+                      disabled={isSavingBranding}
+                    />
+                    <Input
+                      value={brandPrimaryColor}
+                      onChange={(e) => setBrandPrimaryColor(e.target.value)}
+                      placeholder="#1a56db"
+                      className="flex-1 font-mono"
+                      disabled={isSavingBranding}
+                      maxLength={7}
+                    />
+                  </div>
+                  <p className="text-xs text-neutral-500">
+                    Usada em títulos e elementos principais
+                  </p>
+                </div>
+
+                {/* Secondary Color */}
+                <div className="space-y-2">
+                  <Label htmlFor="brandSecondaryColor">Cor Secundária</Label>
+                  <div className="flex gap-2">
+                    <input
+                      type="color"
+                      id="brandSecondaryColor"
+                      value={brandSecondaryColor}
+                      onChange={(e) => setBrandSecondaryColor(e.target.value)}
+                      className="w-12 h-10 rounded border border-neutral-300 cursor-pointer"
+                      disabled={isSavingBranding}
+                    />
+                    <Input
+                      value={brandSecondaryColor}
+                      onChange={(e) => setBrandSecondaryColor(e.target.value)}
+                      placeholder="#f3f4f6"
+                      className="flex-1 font-mono"
+                      disabled={isSavingBranding}
+                      maxLength={7}
+                    />
+                  </div>
+                  <p className="text-xs text-neutral-500">
+                    Usada em fundos e elementos secundários
+                  </p>
+                </div>
+              </div>
+
+              {/* Preview */}
+              <div className="pt-4 border-t border-neutral-200">
+                <Label className="mb-3 block">Pré-visualização</Label>
+                <div
+                  className="p-4 rounded-lg border"
+                  style={{ backgroundColor: brandSecondaryColor }}
+                >
+                  <div
+                    className="text-lg font-bold mb-2"
+                    style={{ color: brandPrimaryColor }}
+                  >
+                    {companyName || 'Nome da Empresa'}
+                  </div>
+                  <div className="text-sm text-neutral-600">
+                    Exemplo de como as cores aparecerão no laudo
+                  </div>
+                  <div
+                    className="mt-3 px-4 py-2 rounded text-white text-sm font-medium inline-block"
+                    style={{ backgroundColor: brandPrimaryColor }}
+                  >
+                    Botão de Exemplo
+                  </div>
+                </div>
+              </div>
+
+              {/* Powered By Toggle */}
+              <div className="flex items-center justify-between pt-4 border-t border-neutral-200">
+                <div className="space-y-1">
+                  <Label htmlFor="showPoweredBy" className="text-sm font-medium">
+                    Mostrar "Powered by VistorIA Pro"
+                  </Label>
+                  <p className="text-xs text-neutral-500">
+                    Exibe marca d'água discreta no rodapé dos laudos
+                  </p>
+                </div>
+                <Switch
+                  id="showPoweredBy"
+                  checked={showPoweredBy}
+                  onCheckedChange={setShowPoweredBy}
+                  disabled={isSavingBranding}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Save Button */}
+          <div className="flex justify-end">
+            <Button onClick={handleSaveBranding} disabled={isSavingBranding}>
+              {isSavingBranding ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                <>
+                  <Save className="mr-2 h-4 w-4" />
+                  Salvar Configurações de Marca
+                </>
+              )}
+            </Button>
+          </div>
         </TabsContent>
 
         {/* Preferences Tab */}
@@ -588,6 +958,75 @@ export default function SettingsPage() {
                     <strong>Nota:</strong> Esta é a configuração padrão. Você poderá ajustar o nível de rigor
                     individualmente ao criar cada vistoria.
                   </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Regional Settings */}
+          <Card className="border-neutral-200 bg-white">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-3">
+                <MapPin className="h-5 w-5 text-primary-600" />
+                <div>
+                  <CardTitle className="text-lg font-semibold">Configurações Regionais</CardTitle>
+                  <CardDescription className="mt-1">
+                    Configure sua região para estimativas de custos de reparo
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="defaultRegion">Região Padrão</Label>
+                <Select
+                  value={defaultRegion}
+                  onValueChange={handleRegionChange}
+                  disabled={loadingRegions}
+                >
+                  <SelectTrigger id="defaultRegion">
+                    <SelectValue placeholder={loadingRegions ? 'Carregando...' : 'Selecione a região'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {regions.length > 0 ? (
+                      regions.map((region) => (
+                        <SelectItem key={region.code} value={region.code}>
+                          {region.name} {region.state && `- ${region.state}`}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="sp_capital">São Paulo Capital</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-neutral-500">
+                  Usada para calcular estimativas de custo de reparo nos laudos
+                </p>
+              </div>
+
+              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+                <p className="text-sm text-emerald-900">
+                  <strong>Estimativa de Custos:</strong> Os valores de reparo são estimados com base nos
+                  preços de mercado da sua região selecionada. Diferentes regiões têm multiplicadores de custo
+                  que refletem a variação nos preços de mão de obra e materiais.
+                </p>
+              </div>
+
+              {/* Link to Price Table */}
+              <div className="pt-4 border-t border-neutral-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium">Tabela de Preços</Label>
+                    <p className="text-sm text-neutral-500">
+                      Personalize os preços dos serviços para sua realidade
+                    </p>
+                  </div>
+                  <Button variant="outline" asChild>
+                    <Link href="/dashboard/settings/prices">
+                      <DollarSign className="mr-2 h-4 w-4" />
+                      Gerenciar Preços
+                    </Link>
+                  </Button>
                 </div>
               </div>
             </CardContent>

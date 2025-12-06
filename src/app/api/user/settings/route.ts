@@ -14,6 +14,15 @@ import type { UserSettings, AIStrictnessLevel } from '@/types/database'
 const updateSettingsSchema = z.object({
   disputes_enabled: z.boolean().optional(),
   ai_inspection_strictness: z.enum(['standard', 'strict', 'very_strict']).optional(),
+  // White-label branding
+  company_name: z.string().max(100).optional().nullable(),
+  logo_url: z.string().url().optional().nullable(),
+  brand_primary_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().nullable(),
+  brand_secondary_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().nullable(),
+  pdf_footer_text: z.string().max(500).optional().nullable(),
+  show_powered_by: z.boolean().optional(),
+  // Regional settings
+  default_region: z.string().max(50).optional().nullable(),
 })
 
 /**

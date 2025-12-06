@@ -8,6 +8,9 @@ import { createAdminClient } from '@/lib/supabase/server'
  *
  * This endpoint helps maintain consistency by suggesting room names
  * from the corresponding move-in inspection when creating a move-out inspection.
+ *
+ * Query params:
+ * - autoCreate=true: Automatically create rooms from move-in inspection
  */
 
 interface SuggestedRoom {
@@ -28,6 +31,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     const { id: inspectionId } = await params
+    const searchParams = request.nextUrl.searchParams
+    const autoCreate = searchParams.get('autoCreate') === 'true'
+
     const supabase = createAdminClient()
 
     // Get user from database
@@ -129,11 +135,53 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const suggestions: SuggestedRoom[] = Array.from(roomsMap.values())
       .sort((a, b) => b.photo_count - a.photo_count)
 
+    // Auto-create rooms if requested
+    if (autoCreate && suggestions.length > 0) {
+      // First, check if current inspection already has rooms
+      const { data: existingRooms } = await supabase
+        .from('inspection_rooms')
+        .select('id')
+        .eq('inspection_id', inspectionId)
+        .limit(1)
+
+      // Only auto-create if no rooms exist
+      if (!existingRooms || existingRooms.length === 0) {
+        const roomsToCreate = suggestions.map((suggestion, index) => ({
+          inspection_id: inspectionId,
+          name: suggestion.name,
+          type: suggestion.category,
+          order_index: index,
+        }))
+
+        const { data: createdRooms, error: createError } = await supabase
+          .from('inspection_rooms')
+          .insert(roomsToCreate)
+          .select('id, name, type, order_index')
+
+        if (createError) {
+          console.error('Error auto-creating rooms:', createError)
+          // Don't fail - just return suggestions without auto-creation
+        } else {
+          console.log(`[AutoCreate] Created ${createdRooms?.length} rooms from move-in inspection`)
+
+          return NextResponse.json({
+            suggestions,
+            move_in_inspection_id: moveInInspection.id,
+            total_rooms: suggestions.length,
+            total_photos: photos.length,
+            autoCreated: true,
+            createdRooms: createdRooms,
+          })
+        }
+      }
+    }
+
     return NextResponse.json({
       suggestions,
       move_in_inspection_id: moveInInspection.id,
       total_rooms: suggestions.length,
       total_photos: photos.length,
+      autoCreated: false,
     })
   } catch (error) {
     console.error('Error in GET /api/inspections/[id]/suggested-rooms:', error)

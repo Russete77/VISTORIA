@@ -48,6 +48,15 @@ export interface UserSettings {
   user_id: string
   disputes_enabled: boolean
   ai_inspection_strictness: AIStrictnessLevel
+  // White-label branding
+  company_name?: string | null
+  logo_url?: string | null
+  brand_primary_color?: string | null
+  brand_secondary_color?: string | null
+  pdf_footer_text?: string | null
+  show_powered_by?: boolean
+  // Regional settings
+  default_region?: string | null
   created_at: string
   updated_at: string
 }

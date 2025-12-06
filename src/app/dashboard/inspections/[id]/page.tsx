@@ -85,6 +85,7 @@ export default function InspectionDetailsPage() {
     }
   }
 
+
   const getStatusColor = (status: string) => {
     const colors = {
       draft: 'bg-gray-500',
@@ -116,7 +117,7 @@ export default function InspectionDetailsPage() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto p-6">
+      <div className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
@@ -129,7 +130,7 @@ export default function InspectionDetailsPage() {
 
   if (error || !inspection) {
     return (
-      <div className="container mx-auto p-6">
+      <div className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         <Card className="border-destructive">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-destructive">
@@ -150,58 +151,61 @@ export default function InspectionDetailsPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.back()}>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-start sm:items-center gap-3 sm:gap-4">
+          <Button variant="ghost" size="icon" onClick={() => router.back()} className="shrink-0">
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div>
-            <h1 className="text-3xl font-bold">Vistoria #{inspection.id.slice(0, 8)}</h1>
-            <p className="text-muted-foreground">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold truncate">
+              Vistoria #{inspection.id.slice(0, 8)}
+            </h1>
+            <p className="text-sm sm:text-base text-muted-foreground truncate">
               {inspection.property.name} - {inspection.property.address}
             </p>
           </div>
         </div>
-        <div className="flex gap-3">
-          <Button variant="outline" asChild>
+        <div className="flex flex-wrap gap-2 sm:gap-3">
+          <Button variant="outline" asChild size="sm" className="sm:size-default">
             <Link href={`/dashboard/inspections/${inspection.id}/edit`}>
-              <Edit className="h-4 w-4 mr-2" />
-              Editar Vistoria
+              <Edit className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Editar Vistoria</span>
             </Link>
           </Button>
           {inspection.status !== 'completed' && inspection.status !== 'signed' && (
-            <Button asChild>
+            <Button asChild size="sm" className="sm:size-default">
               <Link href={`/dashboard/inspections/${inspection.id}/capture`}>
-                <Camera className="h-4 w-4 mr-2" />
-                Capturar Fotos
+                <Camera className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Capturar Fotos</span>
               </Link>
             </Button>
           )}
           {inspection.report_url && (
-            <Button variant="outline" asChild>
+            <Button variant="outline" asChild size="sm" className="sm:size-default">
               <a href={inspection.report_url} target="_blank" rel="noopener noreferrer">
-                <Download className="h-4 w-4 mr-2" />
-                Baixar Laudo
+                <Download className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Baixar Laudo</span>
               </a>
             </Button>
           )}
           {inspection.status === 'completed' && !inspection.report_url && (
-            <Button variant="default" onClick={handleGeneratePDF} disabled={isGeneratingPDF}>
+            <Button variant="default" onClick={handleGeneratePDF} disabled={isGeneratingPDF} size="sm" className="sm:size-default">
               {isGeneratingPDF ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Loader2 className="h-4 w-4 sm:mr-2 animate-spin" />
               ) : (
-                <FileText className="h-4 w-4 mr-2" />
+                <FileText className="h-4 w-4 sm:mr-2" />
               )}
-              {isGeneratingPDF ? 'Gerando...' : 'Gerar Laudo PDF'}
+              <span className="hidden sm:inline">{isGeneratingPDF ? 'Gerando...' : 'Gerar Laudo PDF'}</span>
+              <span className="sm:hidden">{isGeneratingPDF ? '...' : 'PDF'}</span>
             </Button>
           )}
         </div>
       </div>
 
       {/* Info Cards */}
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium">Status</CardTitle>

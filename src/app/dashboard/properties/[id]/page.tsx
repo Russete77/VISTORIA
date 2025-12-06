@@ -17,6 +17,7 @@ import {
   FileText,
   ClipboardCheck,
   Loader2,
+  History,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -327,6 +328,12 @@ export default function PropertyDetailPage({ params }: PropertyDetailPageProps) 
                 <Link href={`/dashboard/inspections/new?property=${id}`}>
                   <ClipboardCheck className="mr-2 h-4 w-4" />
                   Nova Vistoria
+                </Link>
+              </Button>
+              <Button variant="outline" className="w-full" asChild>
+                <Link href={`/dashboard/properties/${id}/history`}>
+                  <History className="mr-2 h-4 w-4" />
+                  Prontuário
                 </Link>
               </Button>
               <Button variant="outline" className="w-full" asChild>

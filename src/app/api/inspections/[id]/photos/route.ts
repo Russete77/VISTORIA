@@ -3,6 +3,8 @@ import { auth } from '@clerk/nextjs/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { uploadInspectionPhoto } from '@/services/storage'
 import { analyzePhoto } from '@/services/ai-analysis'
+import { estimateProblemCosts } from '@/services/cost-estimation'
+import { quickRateLimit } from '@/lib/api-utils'
 
 /**
  * Inspection Photos API - VistorIA Pro
@@ -19,6 +21,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    // Rate limiting (AI analysis + upload)
+    const rateLimited = await quickRateLimit(request, 'ai')
+    if (rateLimited) return rateLimited
 
     const { id: inspectionId } = await params
     const supabase = createAdminClient()
@@ -235,9 +241,80 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       }
     }) || []
 
+    // Get region code from user settings or use default
+    const { data: userSettings } = await supabase
+      .from('user_settings')
+      .select('default_region')
+      .eq('user_id', user.id)
+      .single()
+
+    const regionCode = userSettings?.default_region || 'sp_capital'
+
+    // Estimate costs for all problems
+    const allProblems = photosWithUrls.flatMap((photo: any) =>
+      (photo.problems || []).map((problem: any) => ({
+        ...problem,
+        photoId: photo.id,
+      }))
+    )
+
+    let problemsWithCosts: any[] = []
+    if (allProblems.length > 0) {
+      const problemsForEstimation = allProblems.map((p: any) => ({
+        description: p.description,
+        severity: p.severity,
+        location: p.location || undefined,
+        suggestedAction: p.suggested_action || undefined,
+      }))
+
+      const estimatedProblems = await estimateProblemCosts(problemsForEstimation, regionCode)
+
+      // Map back to original problems with costs
+      problemsWithCosts = allProblems.map((problem: any, index: number) => ({
+        ...problem,
+        estimatedCost: estimatedProblems[index]?.estimatedCost || null,
+      }))
+    }
+
+    // Add estimated costs back to photos
+    const photosWithCosts = photosWithUrls.map((photo: any) => ({
+      ...photo,
+      problems: (photo.problems || []).map((problem: any) => {
+        const problemWithCost = problemsWithCosts.find(
+          (p: any) => p.id === problem.id
+        )
+        return problemWithCost || problem
+      }),
+    }))
+
+    // Calculate cost summary
+    const costSummary = {
+      totalMin: 0,
+      totalMax: 0,
+      totalAvg: 0,
+      problemsWithCosts: 0,
+      problemsWithoutCosts: 0,
+    }
+
+    for (const problem of problemsWithCosts) {
+      if (problem.estimatedCost) {
+        costSummary.totalMin += problem.estimatedCost.min
+        costSummary.totalMax += problem.estimatedCost.max
+        costSummary.totalAvg += problem.estimatedCost.avg
+        costSummary.problemsWithCosts++
+      } else {
+        costSummary.problemsWithoutCosts++
+      }
+    }
+
     return NextResponse.json({
-      photos: photosWithUrls,
-      count: photosWithUrls.length,
+      photos: photosWithCosts,
+      count: photosWithCosts.length,
+      costSummary: allProblems.length > 0 ? {
+        ...costSummary,
+        totalAvg: Math.round(costSummary.totalAvg * 100) / 100,
+        region: regionCode,
+      } : null,
     })
   } catch (error) {
     console.error('Error in GET /api/inspections/[id]/photos:', error)
@@ -245,6 +322,132 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       { error: 'Internal server error' },
       { status: 500 }
     )
+  }
+}
+
+export async function PATCH(request: NextRequest, { params }: RouteParams) {
+  try {
+    const { userId } = await auth()
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { id: inspectionId } = await params
+    const body = await request.json()
+    const { photoId, user_notes, ai_summary, problems } = body
+
+    if (!photoId) {
+      return NextResponse.json({ error: 'Photo ID is required' }, { status: 400 })
+    }
+
+    const supabase = createAdminClient()
+
+    // Get user from database
+    const { data: user } = await supabase
+      .from('users')
+      .select('id')
+      .eq('clerk_id', userId)
+      .single()
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    // Verify photo ownership
+    const { data: photo } = await supabase
+      .from('inspection_photos')
+      .select('*, inspection:inspections(user_id)')
+      .eq('id', photoId)
+      .single()
+
+    if (!photo) {
+      return NextResponse.json({ error: 'Photo not found' }, { status: 404 })
+    }
+
+    if (photo.inspection.user_id !== user.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    }
+
+    // Build update object with provided fields
+    const updateData: Record<string, any> = {}
+    if (user_notes !== undefined) updateData.user_notes = user_notes
+    if (ai_summary !== undefined) {
+      updateData.ai_summary = ai_summary
+      updateData.ai_edited = true
+      updateData.ai_edited_at = new Date().toISOString()
+    }
+
+    // Update photo if there's data to update
+    let updatedPhoto = photo
+    if (Object.keys(updateData).length > 0) {
+      const { data, error: updateError } = await supabase
+        .from('inspection_photos')
+        .update(updateData)
+        .eq('id', photoId)
+        .select()
+        .single()
+
+      if (updateError) {
+        console.error('Error updating photo:', updateError)
+        return NextResponse.json({ error: 'Failed to update photo' }, { status: 500 })
+      }
+      updatedPhoto = data
+    }
+
+    // Update problems if provided
+    if (problems !== undefined) {
+      // Delete existing problems
+      await supabase
+        .from('photo_problems')
+        .delete()
+        .eq('photo_id', photoId)
+
+      // Insert new problems
+      if (problems && problems.length > 0) {
+        const problemsToInsert = problems.map((problem: any) => ({
+          photo_id: photoId,
+          inspection_id: inspectionId,
+          description: problem.description,
+          severity: problem.severity || 'medium',
+          location: problem.location || null,
+          suggested_action: problem.suggested_action || problem.suggestedAction || null,
+          ai_confidence: problem.ai_confidence || problem.confidence || null,
+        }))
+
+        const { error: problemsError } = await supabase
+          .from('photo_problems')
+          .insert(problemsToInsert)
+
+        if (problemsError) {
+          console.error('Error updating problems:', problemsError)
+          return NextResponse.json({ error: 'Failed to update problems' }, { status: 500 })
+        }
+      }
+
+      // Update ai_has_problems flag
+      await supabase
+        .from('inspection_photos')
+        .update({ ai_has_problems: problems.length > 0 })
+        .eq('id', photoId)
+    }
+
+    // Fetch updated photo with problems
+    const { data: completePhoto } = await supabase
+      .from('inspection_photos')
+      .select(`
+        *,
+        problems:photo_problems(*)
+      `)
+      .eq('id', photoId)
+      .single()
+
+    return NextResponse.json({
+      photo: completePhoto || updatedPhoto,
+      message: 'Photo updated successfully',
+    })
+  } catch (error) {
+    console.error('Error in PATCH /api/inspections/[id]/photos:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 

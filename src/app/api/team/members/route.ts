@@ -155,6 +155,52 @@ export async function GET(request: NextRequest) {
       return await mockTeamResponse(supabase, dbUser, mockMembers)
     }
 
+    // If no members exist, auto-create the owner record
+    if (!membersError && (!members || members.length === 0)) {
+      console.log('[Team API] No team members found, auto-creating owner record')
+
+      // Get user details
+      const { data: userData } = await supabase
+        .from('users')
+        .select('email, full_name')
+        .eq('id', dbUser.id)
+        .single()
+
+      const ownerData = {
+        user_id: dbUser.id,
+        email: userData?.email || clerkUser.emailAddresses[0]?.emailAddress || '',
+        name: userData?.full_name || clerkUser.fullName || clerkUser.firstName || 'Owner',
+        role: 'owner' as const,
+        status: 'active' as const,
+        invited_at: new Date().toISOString(),
+        accepted_at: new Date().toISOString(),
+        last_active_at: new Date().toISOString(),
+      }
+
+      const { data: newOwner, error: createError } = await supabase
+        .from('team_members')
+        .insert(ownerData)
+        .select()
+        .single()
+
+      if (createError) {
+        console.error('[Team API] Failed to create owner record:', createError)
+        // Return mock data as fallback
+        return await mockTeamResponse(supabase, dbUser, [{
+          ...ownerData,
+          id: dbUser.id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          deleted_at: null,
+        }])
+      }
+
+      console.log('[Team API] Owner record created successfully:', newOwner.id)
+
+      // Return with the newly created owner
+      return await mockTeamResponse(supabase, dbUser, [newOwner])
+    }
+
     if (membersError) {
       console.error('Error fetching team members:', membersError)
       return NextResponse.json(

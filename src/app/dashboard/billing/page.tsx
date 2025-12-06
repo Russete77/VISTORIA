@@ -275,21 +275,22 @@ export default function BillingPage() {
             <Receipt className="h-5 w-5 text-neutral-500" />
           </div>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Data</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Produto</TableHead>
-                <TableHead>Créditos</TableHead>
-                <TableHead>Valor</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Nota Fiscal</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.transactions.length === 0 ? (
+        <CardContent className="px-0 sm:px-6">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="whitespace-nowrap">Data</TableHead>
+                  <TableHead className="whitespace-nowrap">Tipo</TableHead>
+                  <TableHead className="whitespace-nowrap">Produto</TableHead>
+                  <TableHead className="whitespace-nowrap">Créditos</TableHead>
+                  <TableHead className="whitespace-nowrap">Valor</TableHead>
+                  <TableHead className="whitespace-nowrap">Status</TableHead>
+                  <TableHead className="whitespace-nowrap text-right">Nota Fiscal</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.transactions.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-neutral-500 py-8">
                     Nenhuma transação registrada
@@ -339,8 +340,9 @@ export default function BillingPage() {
                   )
                 })
               )}
-            </TableBody>
-          </Table>
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 
@@ -352,19 +354,20 @@ export default function BillingPage() {
             <TrendingUp className="h-5 w-5 text-neutral-500" />
           </div>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Data</TableHead>
-                <TableHead>Descrição</TableHead>
-                <TableHead>Créditos Usados</TableHead>
-                <TableHead>Saldo Anterior</TableHead>
-                <TableHead>Saldo Atual</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.creditUsage.length === 0 ? (
+        <CardContent className="px-0 sm:px-6">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="whitespace-nowrap">Data</TableHead>
+                  <TableHead className="whitespace-nowrap">Descrição</TableHead>
+                  <TableHead className="whitespace-nowrap">Créditos Usados</TableHead>
+                  <TableHead className="whitespace-nowrap">Saldo Anterior</TableHead>
+                  <TableHead className="whitespace-nowrap">Saldo Atual</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.creditUsage.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center text-neutral-500 py-8">
                     Nenhum uso de créditos registrado
@@ -408,8 +411,9 @@ export default function BillingPage() {
                   </TableRow>
                 ))
               )}
-            </TableBody>
-          </Table>
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

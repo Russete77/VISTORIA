@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { generateSatelitPDF } from '@/services/pdf-generator-satelit'
+import { generatePDFWithTemplate } from '@/services/pdf-generator-with-template'
 import { canUseCredits, shouldSkipCreditDeduction } from '@/lib/auth/dev-access'
 import { sendEmail, validateEmails, formatDisplayName } from '@/lib/email/client'
 import LaudoProntoEmail from '@/lib/email/templates/laudo-pronto'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { PDFTemplateConfig, DEFAULT_TEMPLATE_CONFIG } from '@/types/pdf-template'
+import { quickRateLimit } from '@/lib/api-utils'
+import { generateCompleteTechnicalReport, PhotoWithAnalysis } from '@/services/technical-analysis'
 
 /**
  * POST /api/inspections/[id]/generate-report
@@ -21,6 +25,10 @@ export async function POST(
     if (!authResult.userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    // Rate limiting (report generation is expensive)
+    const rateLimited = await quickRateLimit(request, 'report')
+    if (rateLimited) return rateLimited
 
     const { id } = await params
     const supabase = createAdminClient()
@@ -101,6 +109,140 @@ export async function POST(
 
     console.log(`[PDF Generation] Inspection ${id} - Status: ${inspection.status}, Rooms: ${rooms.length}, Photos: ${photos?.length || 0}`)
 
+    // Get video transcription (if exists)
+    const videoPhoto = photosWithUrls.find(
+      (p: any) => p.from_video && p.video_transcription
+    )
+    const transcription = videoPhoto?.video_transcription || null
+
+    // Get previous inspection for comparison (if move_out)
+    let previousReport = null
+    if (inspection.type === 'move_out') {
+      console.log('[Technical Analysis] Move-out inspection detected, fetching previous move-in...')
+
+      const { data: prevInspection } = await supabase
+        .from('inspections')
+        .select('id')
+        .eq('property_id', inspection.property_id)
+        .eq('type', 'move_in')
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (prevInspection) {
+        console.log(`[Technical Analysis] Found previous move-in inspection: ${prevInspection.id}`)
+
+        const { data: prevReport } = await supabase
+          .from('technical_reports')
+          .select('report_data')
+          .eq('inspection_id', prevInspection.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single()
+
+        if (prevReport?.report_data) {
+          previousReport = prevReport.report_data
+          console.log('[Technical Analysis] Previous report found for comparison')
+        } else {
+          console.log('[Technical Analysis] No previous technical report found')
+        }
+      } else {
+        console.log('[Technical Analysis] No previous move-in inspection found')
+      }
+    }
+
+    // Generate complete technical analysis with 8 instructions
+    console.log('[Technical Analysis] Starting complete technical analysis...')
+    const startTime = Date.now()
+
+    const photosForAnalysis: PhotoWithAnalysis[] = photosWithUrls.map((photo: any) => ({
+      url: photo.photo_url,
+      room_name: photo.room_name,
+      room_category: photo.room_category || 'other',
+      ai_summary: photo.ai_summary,
+      problems: photo.problems?.map((p: any) => ({
+        description: p.description,
+        severity: p.severity,
+        location: p.location || '',
+        suggested_action: p.suggested_action || '',
+      })) || [],
+      from_video: photo.from_video || false,
+      frame_number: photo.frame_number || undefined,
+    }))
+
+    const technicalReport = await generateCompleteTechnicalReport({
+      photos: photosForAnalysis,
+      transcription,
+      previousReport,
+    })
+
+    const processingTimeSeconds = ((Date.now() - startTime) / 1000).toFixed(2)
+    console.log(`[Technical Analysis] Analysis completed in ${processingTimeSeconds}s`)
+
+    // Save technical report to database
+    const { error: reportSaveError } = await supabase
+      .from('technical_reports')
+      .insert({
+        inspection_id: id,
+        user_id: user.id,
+        report_data: technicalReport,
+        model_version: 'claude-sonnet-4-20250514',
+        processing_time_seconds: parseFloat(processingTimeSeconds),
+      })
+
+    if (reportSaveError) {
+      console.error('[Technical Analysis] Error saving report:', reportSaveError)
+      // Don't fail - continue with PDF generation
+    } else {
+      console.log('[Technical Analysis] Report saved to database')
+    }
+
+    // Parse request body for template_id (optional)
+    let templateConfig: PDFTemplateConfig = DEFAULT_TEMPLATE_CONFIG
+    try {
+      const body = await request.json().catch(() => ({}))
+      const templateId = body.template_id
+
+      if (templateId) {
+        // Fetch template from database
+        const { data: template } = await supabase
+          .from('pdf_templates')
+          .select('config')
+          .eq('id', templateId)
+          .or(`user_id.eq.${user.id},is_system.eq.true`)
+          .single()
+
+        if (template?.config) {
+          templateConfig = template.config as PDFTemplateConfig
+          console.log(`[PDF Generation] Using template: ${templateId}`)
+        }
+      } else {
+        // Check for user's default template preference
+        const { data: preferences } = await supabase
+          .from('user_template_preferences')
+          .select('default_inspection_template_id')
+          .eq('user_id', user.id)
+          .single()
+
+        if (preferences?.default_inspection_template_id) {
+          const { data: defaultTemplate } = await supabase
+            .from('pdf_templates')
+            .select('config')
+            .eq('id', preferences.default_inspection_template_id)
+            .single()
+
+          if (defaultTemplate?.config) {
+            templateConfig = defaultTemplate.config as PDFTemplateConfig
+            console.log(`[PDF Generation] Using default template: ${preferences.default_inspection_template_id}`)
+          }
+        }
+      }
+    } catch (parseError) {
+      // No body or invalid JSON - use default template
+      console.log('[PDF Generation] Using default template (no template_id provided)')
+    }
+
     // Inspection must be completed OR have photos to auto-complete
     if (inspection.status !== 'completed' && inspection.status !== 'signed') {
       // Auto-complete if inspection has photos (more permissive logic)
@@ -126,10 +268,12 @@ export async function POST(
       }
     }
 
-    // Generate PDF using Satélit format
-    const pdfBuffer = await generateSatelitPDF({
+    // Generate PDF using template-aware generator
+    const pdfBuffer = await generatePDFWithTemplate({
       inspection,
       rooms,
+      technicalReport,
+      templateConfig,
     })
 
     // Upload PDF to storage

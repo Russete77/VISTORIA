@@ -10,6 +10,7 @@ import {
   Settings,
   FileText,
   GitCompare,
+  Calendar,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -24,6 +25,11 @@ const navigation = [
     name: 'Imóveis',
     href: '/properties',
     icon: Building2,
+  },
+  {
+    name: 'Reservas',
+    href: '/bookings',
+    icon: Calendar,
   },
   {
     name: 'Vistorias',

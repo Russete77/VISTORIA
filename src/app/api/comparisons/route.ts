@@ -201,6 +201,35 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Verificar se ambas as vistorias têm fotos
+    const { count: moveInCount } = await supabase
+      .from('inspection_photos')
+      .select('*', { count: 'exact', head: true })
+      .eq('inspection_id', validatedData.move_in_inspection_id)
+      .is('deleted_at', null)
+
+    const { count: moveOutCount } = await supabase
+      .from('inspection_photos')
+      .select('*', { count: 'exact', head: true })
+      .eq('inspection_id', validatedData.move_out_inspection_id)
+      .is('deleted_at', null)
+
+    if (!moveInCount || moveInCount === 0) {
+      return NextResponse.json(
+        { error: 'A vistoria de entrada não possui fotos. Adicione fotos antes de criar uma comparação.' },
+        { status: 400 }
+      )
+    }
+
+    if (!moveOutCount || moveOutCount === 0) {
+      return NextResponse.json(
+        { error: 'A vistoria de saída não possui fotos. Adicione fotos antes de criar uma comparação.' },
+        { status: 400 }
+      )
+    }
+
+    console.log(`[Comparison] Pre-validation passed: moveIn=${moveInCount} photos, moveOut=${moveOutCount} photos`)
+
     // Criar registro de comparação com status 'processing'
     const { data: comparison, error: comparisonError } = await supabase
       .from('comparisons')

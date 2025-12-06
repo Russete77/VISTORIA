@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
 import {
   Building2,
   Home,
@@ -11,9 +10,8 @@ import {
   Users,
   DollarSign,
   LogOut,
-  Menu,
-  X,
   GitCompare,
+  Calendar,
 } from 'lucide-react'
 import { useClerk, useUser } from '@clerk/nextjs'
 import { cn } from '@/lib/utils'
@@ -24,6 +22,7 @@ import Image from 'next/image'
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: Home },
   { name: 'Imóveis', href: '/dashboard/properties', icon: Building2 },
+  { name: 'Reservas', href: '/dashboard/bookings', icon: Calendar },
   { name: 'Vistorias', href: '/dashboard/inspections', icon: ClipboardCheck },
   { name: 'Comparações', href: '/dashboard/comparisons', icon: GitCompare },
   { name: 'Equipe', href: '/dashboard/team', icon: Users },
@@ -37,7 +36,6 @@ interface DashboardSidebarProps {
 
 export function DashboardSidebar({ className }: DashboardSidebarProps) {
   const pathname = usePathname()
-  const [isMobileOpen, setIsMobileOpen] = useState(false)
   const { signOut } = useClerk()
   const { user: clerkUser } = useUser()
   const { user: dbUser } = useAuth()
@@ -64,38 +62,13 @@ export function DashboardSidebar({ className }: DashboardSidebarProps) {
   }
 
   return (
-    <>
-      {/* Mobile Menu Button */}
-      <button
-        onClick={() => setIsMobileOpen(!isMobileOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 flex h-10 w-10 items-center justify-center rounded-lg bg-white border border-neutral-200 shadow-sm"
-        aria-label="Toggle menu"
-      >
-        {isMobileOpen ? (
-          <X className="h-5 w-5 text-neutral-700" />
-        ) : (
-          <Menu className="h-5 w-5 text-neutral-700" />
-        )}
-      </button>
-
-      {/* Overlay para mobile */}
-      {isMobileOpen && (
-        <div
-          className="lg:hidden fixed inset-0 z-30 bg-black/50"
-          onClick={() => setIsMobileOpen(false)}
-        />
+    <aside
+      className={cn(
+        'flex-col border-r border-neutral-200 bg-white',
+        'sticky top-0 left-0 h-screen w-64',
+        className
       )}
-
-      {/* Sidebar */}
-      <aside
-        className={cn(
-          'flex flex-col border-r border-neutral-200 bg-white',
-          // Mobile: sidebar deslizante
-          'fixed lg:sticky top-0 left-0 z-40 h-screen w-64 transition-transform duration-300',
-          isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
-          className
-        )}
-      >
+    >
         {/* Logo */}
         <div className="flex h-16 items-center gap-2 border-b border-neutral-200 px-6">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-600">
@@ -118,7 +91,6 @@ export function DashboardSidebar({ className }: DashboardSidebarProps) {
               <Link
                 key={item.name}
                 href={item.href}
-                onClick={() => setIsMobileOpen(false)}
                 className={cn(
                   'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150',
                   isActive
@@ -171,7 +143,6 @@ export function DashboardSidebar({ className }: DashboardSidebarProps) {
             Sair
           </Button>
         </div>
-      </aside>
-    </>
+    </aside>
   )
 }

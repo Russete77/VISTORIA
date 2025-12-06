@@ -6,11 +6,33 @@
 import { SignJWT, jwtVerify } from 'jose'
 import { DISPUTE_CONFIG } from '@/lib/constants'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-production'
+// JWT_SECRET is validated at runtime, not during build
+let _jwtSecret: string | null = null
+
+const getJwtSecret = (): string => {
+  // Return cached value if already validated
+  if (_jwtSecret) return _jwtSecret
+
+  const secret = process.env.JWT_SECRET
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('JWT_SECRET environment variable is required in production')
+    }
+    // Only allow fallback in development
+    console.warn('⚠️ Using insecure default JWT_SECRET - set JWT_SECRET env var for production')
+    _jwtSecret = 'dev-only-insecure-secret-do-not-use-in-production'
+    return _jwtSecret
+  }
+  if (secret.length < 32) {
+    throw new Error('JWT_SECRET must be at least 32 characters long')
+  }
+  _jwtSecret = secret
+  return _jwtSecret
+}
 
 // Convert secret to Uint8Array for jose library
 const getSecretKey = () => {
-  return new TextEncoder().encode(JWT_SECRET)
+  return new TextEncoder().encode(getJwtSecret())
 }
 
 // =============================================================================

@@ -38,6 +38,20 @@ export interface PhotoAnalysisResult {
   }>
 }
 
+export interface TechnicalReportInput {
+  photos: Array<{
+    url: string
+    room_name: string
+    room_category: string
+    ai_summary?: string
+    problems?: any[]
+    from_video?: boolean
+    frame_number?: number
+  }>
+  transcription?: string
+  previousReport?: any
+}
+
 export async function analyzePhoto(
   imageUrl: string,
   roomName: string,

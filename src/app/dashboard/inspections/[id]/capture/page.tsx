@@ -3,7 +3,7 @@
 import { use, useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Camera, Upload, Loader2, Check, Plus, Sparkles, FileText, Trash2 } from 'lucide-react'
+import { ArrowLeft, Camera, Upload, Loader2, Check, Plus, Sparkles, FileText, Trash2, Mic, MoreVertical, X, Zap, Video } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { IssueSeverity } from '@/components/vistoria/IssueSeverity'
+import { IssueSeverity, VoiceInput } from '@/components/vistoria'
 import { PhotoLightbox } from '@/components/ui/PhotoLightbox'
 import {
   AlertDialog,
@@ -54,6 +54,10 @@ interface Photo {
   photo_url: string
   ai_analysis: any
   created_at: string
+  user_notes?: string
+  room_name?: string
+  problems?: any[]
+  ai_summary?: string
 }
 
 interface InspectionCapturePageProps {
@@ -77,6 +81,7 @@ export default function InspectionCapturePage({ params }: InspectionCapturePageP
   const { id } = use(params)
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const videoInputRef = useRef<HTMLInputElement>(null)
 
   const [isLoading, setIsLoading] = useState(true)
   const [rooms, setRooms] = useState<Room[]>([])
@@ -92,11 +97,23 @@ export default function InspectionCapturePage({ params }: InspectionCapturePageP
   const [isCompleting, setIsCompleting] = useState(false)
   const [suggestedRooms, setSuggestedRooms] = useState<SuggestedRoom[]>([])
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false)
+  const [editingNotes, setEditingNotes] = useState<string | null>(null)
+  const [notesText, setNotesText] = useState('')
+  const [isSavingNotes, setIsSavingNotes] = useState(false)
+  const [showMobileMenu, setShowMobileMenu] = useState(false)
+  const [isCreatingRoomsByVoice, setIsCreatingRoomsByVoice] = useState(false)
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false)
 
   useEffect(() => {
-    fetchRooms()
-    fetchPhotos()
-    fetchSuggestedRooms()
+    const initializePage = async () => {
+      // PRIMEIRO: tentar auto-criar cômodos da vistoria de entrada (se for saída)
+      await fetchSuggestedRooms()
+      // DEPOIS: buscar os cômodos (incluindo os auto-criados)
+      await fetchRooms()
+      // Por fim: buscar fotos
+      fetchPhotos()
+    }
+    initializePage()
   }, [id])
 
   const fetchRooms = async () => {
@@ -134,7 +151,8 @@ export default function InspectionCapturePage({ params }: InspectionCapturePageP
   const fetchSuggestedRooms = async () => {
     setIsLoadingSuggestions(true)
     try {
-      const response = await fetch(`/api/inspections/${id}/suggested-rooms`, {
+      // Use autoCreate=true to automatically create rooms from move-in inspection
+      const response = await fetch(`/api/inspections/${id}/suggested-rooms?autoCreate=true`, {
         credentials: 'include',
       })
       if (!response.ok) {
@@ -143,6 +161,14 @@ export default function InspectionCapturePage({ params }: InspectionCapturePageP
         return
       }
       const data = await response.json()
+
+      // If rooms were auto-created, show success message
+      if (data.autoCreated && data.createdRooms?.length > 0) {
+        console.log('[AutoCreate] Rooms created from move-in inspection:', data.createdRooms.length)
+        toast.success(`${data.createdRooms.length} cômodos importados da vistoria de entrada!`)
+        // fetchRooms será chamado logo depois no useEffect
+      }
+
       if (data.suggestions && data.suggestions.length > 0) {
         setSuggestedRooms(data.suggestions)
       }
@@ -158,6 +184,52 @@ export default function InspectionCapturePage({ params }: InspectionCapturePageP
     setNewRoomName(suggestion.name)
     setNewRoomType(suggestion.category)
     toast.success(`"${suggestion.name}" preenchido automaticamente`)
+  }
+
+  // Importar TODOS os cômodos da vistoria de entrada de uma vez
+  const handleImportAllRooms = async () => {
+    if (suggestedRooms.length === 0) return
+
+    setIsCreatingRoom(true)
+    let created = 0
+    let failed = 0
+
+    for (const suggestion of suggestedRooms) {
+      try {
+        const response = await fetch(`/api/inspections/${id}/rooms`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: suggestion.name,
+            category: suggestion.category,
+          }),
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          setRooms(prev => [...prev, data.room])
+          if (created === 0) {
+            setSelectedRoom(data.room.id)
+          }
+          created++
+        } else {
+          failed++
+        }
+      } catch (error) {
+        console.error('Error creating room:', suggestion.name, error)
+        failed++
+      }
+    }
+
+    setIsCreatingRoom(false)
+    setSuggestedRooms([]) // Limpar sugestões após importar
+
+    if (created > 0) {
+      toast.success(`${created} cômodo(s) importado(s) com sucesso!`)
+    }
+    if (failed > 0) {
+      toast.error(`${failed} cômodo(s) não puderam ser importados`)
+    }
   }
 
   const handleCreateRoom = async () => {
@@ -265,6 +337,240 @@ export default function InspectionCapturePage({ params }: InspectionCapturePageP
     }
   }
 
+  const handleEditNotes = (photoId: string, currentNotes: string) => {
+    setEditingNotes(photoId)
+    setNotesText(currentNotes || '')
+  }
+
+  const handleSaveNotes = async (photoId: string) => {
+    setIsSavingNotes(true)
+    try {
+      const response = await fetch(`/api/inspections/${id}/photos`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photoId, user_notes: notesText }),
+        credentials: 'include',
+      })
+
+      if (!response.ok) throw new Error('Failed to save notes')
+
+      // Update local state
+      setPhotos(photos.map(p =>
+        p.id === photoId ? { ...p, user_notes: notesText } : p
+      ))
+      setEditingNotes(null)
+      setNotesText('')
+      toast.success('Observações salvas!')
+    } catch (error) {
+      console.error('Error saving notes:', error)
+      toast.error('Erro ao salvar observações')
+    } finally {
+      setIsSavingNotes(false)
+    }
+  }
+
+  const handleVoiceTranscript = (text: string) => {
+    setNotesText(prev => prev ? `${prev} ${text}` : text)
+  }
+
+  // Tipos de cômodos conhecidos
+  const knownRoomTypes: { [key: string]: { name: string; type: string } } = {
+    'sala': { name: 'SALA', type: 'living_room' },
+    'sala de estar': { name: 'SALA DE ESTAR', type: 'living_room' },
+    'sala de jantar': { name: 'SALA DE JANTAR', type: 'living_room' },
+    'living': { name: 'LIVING', type: 'living_room' },
+    'cozinha': { name: 'COZINHA', type: 'kitchen' },
+    'quarto': { name: 'QUARTO', type: 'bedroom' },
+    'quartos': { name: 'QUARTO', type: 'bedroom' },
+    'dormitório': { name: 'DORMITÓRIO', type: 'bedroom' },
+    'dormitórios': { name: 'DORMITÓRIO', type: 'bedroom' },
+    'suíte': { name: 'SUÍTE', type: 'bedroom' },
+    'suítes': { name: 'SUÍTE', type: 'bedroom' },
+    'suite': { name: 'SUÍTE', type: 'bedroom' },
+    'suites': { name: 'SUÍTE', type: 'bedroom' },
+    'banheiro': { name: 'BANHEIRO', type: 'bathroom' },
+    'banheiros': { name: 'BANHEIRO', type: 'bathroom' },
+    'lavabo': { name: 'LAVABO', type: 'bathroom' },
+    'wc': { name: 'WC', type: 'bathroom' },
+    'varanda': { name: 'VARANDA', type: 'balcony' },
+    'varandas': { name: 'VARANDA', type: 'balcony' },
+    'sacada': { name: 'SACADA', type: 'balcony' },
+    'terraço': { name: 'TERRAÇO', type: 'balcony' },
+    'garagem': { name: 'GARAGEM', type: 'garage' },
+    'vaga': { name: 'VAGA', type: 'garage' },
+    'vagas': { name: 'VAGA', type: 'garage' },
+    'área de serviço': { name: 'ÁREA DE SERVIÇO', type: 'laundry' },
+    'lavanderia': { name: 'LAVANDERIA', type: 'laundry' },
+    'corredor': { name: 'CORREDOR', type: 'hallway' },
+    'hall': { name: 'HALL', type: 'hallway' },
+    'entrada': { name: 'ENTRADA', type: 'entrance' },
+    'escritório': { name: 'ESCRITÓRIO', type: 'other' },
+    'despensa': { name: 'DESPENSA', type: 'other' },
+    'closet': { name: 'CLOSET', type: 'other' },
+  }
+
+  // Parsear transcrição de voz para cômodos
+  const parseVoiceRooms = (transcript: string): { name: string; type: string }[] => {
+    const results: { name: string; type: string }[] = []
+
+    console.log('[VoiceRooms] Texto original:', transcript)
+
+    // Mapa de números por extenso
+    const numberWords: { [key: string]: number } = {
+      'um': 1, 'uma': 1, 'dois': 2, 'duas': 2, 'tres': 3, 'três': 3,
+      'quatro': 4, 'cinco': 5, 'seis': 6, 'sete': 7, 'oito': 8, 'nove': 9, 'dez': 10
+    }
+
+    // PRIMEIRO: Separar por vírgulas e "e" ANTES de limpar pontuação
+    const rawSegments = transcript
+      .toLowerCase()
+      .split(/\s*,\s*|\s+e\s+/)
+      .map(s => s.replace(/[.!?]/g, '').trim())
+      .filter(s => s.length > 0)
+
+    console.log('[VoiceRooms] Segmentos:', rawSegments)
+
+    // Lista de cômodos para buscar (ordenados do mais específico para o mais genérico)
+    const roomMappings = [
+      { patterns: ['sala de estar'], name: 'SALA DE ESTAR', type: 'living_room' },
+      { patterns: ['sala de jantar'], name: 'SALA DE JANTAR', type: 'living_room' },
+      { patterns: ['area de servico', 'área de serviço'], name: 'ÁREA DE SERVIÇO', type: 'laundry' },
+      { patterns: ['cozinha'], name: 'COZINHA', type: 'kitchen' },
+      { patterns: ['quarto', 'quartos'], name: 'QUARTO', type: 'bedroom' },
+      { patterns: ['suite', 'suíte', 'suites', 'suítes'], name: 'SUÍTE', type: 'bedroom' },
+      { patterns: ['dormitorio', 'dormitório', 'dormitorios', 'dormitórios'], name: 'DORMITÓRIO', type: 'bedroom' },
+      { patterns: ['banheiro', 'banheiros'], name: 'BANHEIRO', type: 'bathroom' },
+      { patterns: ['lavabo'], name: 'LAVABO', type: 'bathroom' },
+      { patterns: ['varanda', 'varandas'], name: 'VARANDA', type: 'balcony' },
+      { patterns: ['sacada', 'sacadas'], name: 'SACADA', type: 'balcony' },
+      { patterns: ['garagem'], name: 'GARAGEM', type: 'garage' },
+      { patterns: ['vaga', 'vagas'], name: 'VAGA', type: 'garage' },
+      { patterns: ['lavanderia'], name: 'LAVANDERIA', type: 'laundry' },
+      { patterns: ['corredor'], name: 'CORREDOR', type: 'hallway' },
+      { patterns: ['hall'], name: 'HALL', type: 'hallway' },
+      { patterns: ['entrada'], name: 'ENTRADA', type: 'entrance' },
+      { patterns: ['escritorio', 'escritório'], name: 'ESCRITÓRIO', type: 'other' },
+      { patterns: ['closet'], name: 'CLOSET', type: 'other' },
+      { patterns: ['despensa'], name: 'DESPENSA', type: 'other' },
+      { patterns: ['sala'], name: 'SALA', type: 'living_room' }, // Sala genérica por último
+    ]
+
+    // Processar cada segmento
+    for (const segment of rawSegments) {
+      console.log('[VoiceRooms] Processando segmento:', segment)
+
+      // Encontrar qual cômodo está no segmento
+      let foundRoom = null
+      for (const room of roomMappings) {
+        for (const pattern of room.patterns) {
+          if (segment.includes(pattern)) {
+            foundRoom = room
+            console.log(`[VoiceRooms] Cômodo encontrado: ${pattern} -> ${room.name}`)
+            break
+          }
+        }
+        if (foundRoom) break
+      }
+
+      if (!foundRoom) {
+        console.log('[VoiceRooms] Nenhum cômodo encontrado no segmento')
+        continue
+      }
+
+      // Extrair quantidade
+      let quantity = 1
+
+      // Procurar número no início do segmento
+      const words = segment.split(/\s+/)
+      const firstWord = words[0]
+
+      // Verificar se é número
+      const numericMatch = firstWord.match(/^\d+$/)
+      if (numericMatch) {
+        quantity = parseInt(firstWord)
+        console.log(`[VoiceRooms] Quantidade numérica: ${quantity}`)
+      } else if (numberWords[firstWord]) {
+        quantity = numberWords[firstWord]
+        console.log(`[VoiceRooms] Quantidade por extenso (${firstWord}): ${quantity}`)
+      } else {
+        // Verificar segunda palavra também (ex: "mais um quarto")
+        if (words.length > 1 && numberWords[words[1]]) {
+          quantity = numberWords[words[1]]
+          console.log(`[VoiceRooms] Quantidade na segunda palavra (${words[1]}): ${quantity}`)
+        }
+      }
+
+      // Adicionar cômodos com quantidade
+      if (quantity === 1) {
+        results.push({ name: foundRoom.name, type: foundRoom.type })
+      } else {
+        for (let i = 1; i <= quantity; i++) {
+          results.push({ name: `${foundRoom.name} ${i}`, type: foundRoom.type })
+        }
+      }
+      console.log(`[VoiceRooms] Adicionado: ${quantity}x ${foundRoom.name}`)
+    }
+
+    console.log('[VoiceRooms] Resultado final:', results)
+    return results
+  }
+
+  // Função para criar cômodos por voz
+  const handleVoiceRooms = async (transcript: string) => {
+    // Parsear os cômodos da transcrição
+    const parsedRooms = parseVoiceRooms(transcript)
+
+    if (parsedRooms.length === 0) {
+      toast.error('Não consegui identificar os cômodos. Diga por exemplo: "2 quartos, 1 banheiro e cozinha"')
+      return
+    }
+
+    setIsCreatingRoomsByVoice(true)
+
+    // Mostrar preview do que será criado
+    const preview = parsedRooms.map(r => r.name).join(', ')
+    toast.info(`Criando: ${preview}`)
+
+    let created = 0
+    let failed = 0
+
+    for (const room of parsedRooms) {
+      try {
+        const response = await fetch(`/api/inspections/${id}/rooms`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: room.name,
+            category: room.type,
+          }),
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          setRooms(prev => [...prev, data.room])
+          if (!selectedRoom) {
+            setSelectedRoom(data.room.id)
+          }
+          created++
+        } else {
+          failed++
+        }
+      } catch (error) {
+        console.error('Erro ao criar cômodo:', room.name, error)
+        failed++
+      }
+    }
+
+    setIsCreatingRoomsByVoice(false)
+
+    if (created > 0) {
+      toast.success(`${created} cômodo(s) criado(s) com sucesso!`)
+    }
+    if (failed > 0) {
+      toast.error(`${failed} cômodo(s) não puderam ser criados`)
+    }
+  }
+
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files
     if (!files || files.length === 0 || !selectedRoom) return
@@ -312,6 +618,69 @@ export default function InspectionCapturePage({ params }: InspectionCapturePageP
     }
   }
 
+  const handleVideoSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files
+    if (!files || files.length === 0 || !selectedRoom) return
+
+    const file = files[0]
+
+    // Validar duração do vídeo (max 30s)
+    const video = document.createElement('video')
+    video.preload = 'metadata'
+
+    video.onloadedmetadata = async () => {
+      window.URL.revokeObjectURL(video.src)
+
+      if (video.duration > 30) {
+        toast.error('Vídeo muito longo! Máximo 30 segundos.')
+        if (videoInputRef.current) {
+          videoInputRef.current.value = ''
+        }
+        return
+      }
+
+      setIsUploadingVideo(true)
+
+      try {
+        const room = rooms.find((r) => r.id === selectedRoom)
+        if (!room) throw new Error('Room not found')
+
+        const formData = new FormData()
+        formData.append('video', file)
+        formData.append('room_id', selectedRoom)
+        formData.append('room_name', room.name.trim())
+        formData.append('room_type', room.type)
+
+        const response = await fetch(`/api/inspections/${id}/video-analysis`, {
+          method: 'POST',
+          body: formData,
+        })
+
+        if (!response.ok) throw new Error('Failed to upload video')
+        const data = await response.json()
+
+        toast.success(
+          `Vídeo processado! ${data.framesAnalyzed} frames analisados, ${data.totalProblems} problema(s) detectado(s)`,
+          { duration: 6000 }
+        )
+
+        // Refresh photos to show frames extracted from video
+        fetchPhotos()
+        fetchRooms()
+      } catch (error) {
+        console.error('Error uploading video:', error)
+        toast.error('Erro ao processar vídeo')
+      } finally {
+        setIsUploadingVideo(false)
+        if (videoInputRef.current) {
+          videoInputRef.current.value = ''
+        }
+      }
+    }
+
+    video.src = URL.createObjectURL(file)
+  }
+
   const currentRoom = rooms.find((r) => r.id === selectedRoom)
   const currentRoomPhotos = currentRoom
     ? photos.filter((p: any) => p.room_name === currentRoom.name)
@@ -333,8 +702,8 @@ export default function InspectionCapturePage({ params }: InspectionCapturePageP
   return (
     <div className="space-y-4 sm:space-y-6 px-4 sm:px-0">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 sm:gap-4 min-w-0">
           <Button variant="ghost" size="icon" asChild className="flex-shrink-0">
             <Link href={`/dashboard/inspections/${id}`}>
               <ArrowLeft className="h-5 w-5" />
@@ -342,20 +711,21 @@ export default function InspectionCapturePage({ params }: InspectionCapturePageP
           </Button>
           <div className="min-w-0">
             <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-neutral-900 truncate">Captura de Fotos</h1>
-            <p className="text-xs sm:text-sm md:text-base text-neutral-600 mt-1">
+            <p className="text-xs sm:text-sm md:text-base text-neutral-600 mt-1 hidden sm:block">
               Tire fotos dos cômodos e receba análise de IA
             </p>
           </div>
         </div>
-        <div className="flex gap-2 w-full sm:w-auto">
-          <Button onClick={() => router.push(`/dashboard/inspections/${id}/review`)} variant="outline" className="w-full sm:w-auto flex-shrink-0">
+
+        {/* Desktop buttons */}
+        <div className="hidden sm:flex gap-2">
+          <Button onClick={() => router.push(`/dashboard/inspections/${id}/review`)} variant="outline">
             <FileText className="mr-2 h-4 w-4" />
             Revisar Laudo
           </Button>
           <Button
             onClick={() => setShowConfirmDialog(true)}
             disabled={isCompleting}
-            className="w-full sm:w-auto flex-shrink-0"
           >
             {isCompleting ? (
               <>
@@ -369,6 +739,51 @@ export default function InspectionCapturePage({ params }: InspectionCapturePageP
               </>
             )}
           </Button>
+        </div>
+
+        {/* Mobile menu button */}
+        <div className="sm:hidden relative">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowMobileMenu(!showMobileMenu)}
+            className="h-10 w-10"
+          >
+            <MoreVertical className="h-5 w-5" />
+          </Button>
+
+          {/* Mobile dropdown menu */}
+          {showMobileMenu && (
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setShowMobileMenu(false)}
+              />
+              <div className="absolute right-0 top-12 z-50 w-56 bg-white border border-neutral-200 rounded-lg shadow-lg p-2 animate-in fade-in-0 zoom-in-95">
+                <button
+                  onClick={() => {
+                    router.push(`/dashboard/inspections/${id}/review`)
+                    setShowMobileMenu(false)
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-neutral-700 hover:bg-neutral-100 rounded-md transition-colors"
+                >
+                  <FileText className="h-4 w-4" />
+                  Revisar Laudo
+                </button>
+                <button
+                  onClick={() => {
+                    setShowConfirmDialog(true)
+                    setShowMobileMenu(false)
+                  }}
+                  disabled={isCompleting}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-primary-600 hover:bg-primary-50 rounded-md transition-colors disabled:opacity-50"
+                >
+                  <Check className="h-4 w-4" />
+                  Concluir Vistoria
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -408,41 +823,53 @@ export default function InspectionCapturePage({ params }: InspectionCapturePageP
             </div>
 
             {/* Suggested Rooms from Move-In Inspection */}
-            {suggestedRooms.length > 0 && (
+            {suggestedRooms.length > 0 && rooms.length === 0 && (
               <div className="pt-4 border-t space-y-3">
                 <div className="flex items-center gap-2 text-sm font-medium text-neutral-700">
                   <Sparkles className="h-4 w-4 text-primary-600" />
                   <span>Cômodos da Vistoria de Entrada</span>
                 </div>
-                <p className="text-xs text-neutral-500">
-                  Clique para usar os mesmos nomes e garantir consistência na comparação
+
+                {/* BOTÃO PRINCIPAL: Importar todos de uma vez */}
+                <Button
+                  onClick={handleImportAllRooms}
+                  disabled={isCreatingRoom}
+                  className="w-full bg-primary-600 hover:bg-primary-700"
+                >
+                  {isCreatingRoom ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Importando...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Importar {suggestedRooms.length} cômodos
+                    </>
+                  )}
+                </Button>
+
+                <p className="text-xs text-neutral-500 text-center">
+                  Todos os cômodos da vistoria de entrada serão criados automaticamente
                 </p>
-                <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto">
-                  {suggestedRooms.map((suggestion, index) => (
-                    <button
-                      key={index}
-                      onClick={() => handleSuggestedRoomClick(suggestion)}
-                      className="flex items-center justify-between p-2.5 text-left bg-primary-50 hover:bg-primary-100 border border-primary-200 hover:border-primary-300 rounded-lg transition-all group"
-                      type="button"
-                    >
-                      <span className="text-sm font-medium text-neutral-800 group-hover:text-primary-700">
-                        {suggestion.name}
-                      </span>
-                      <Badge variant="outline" className="text-xs">
-                        {suggestion.photo_count} {suggestion.photo_count === 1 ? 'foto' : 'fotos'}
-                      </Badge>
-                    </button>
-                  ))}
-                </div>
               </div>
             )}
 
             {/* Add Room */}
             <div className="pt-4 border-t space-y-3">
-              <div className="flex items-center gap-2 text-sm font-medium text-neutral-700">
-                <Plus className="h-4 w-4" />
-                <span>{suggestedRooms.length > 0 ? 'Ou adicionar novo cômodo' : 'Adicionar Cômodo'}</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm font-medium text-neutral-700">
+                  <Plus className="h-4 w-4" />
+                  <span>{suggestedRooms.length > 0 ? 'Ou adicionar novo cômodo' : 'Adicionar Cômodo'}</span>
+                </div>
+                <VoiceInput
+                  onTranscript={handleVoiceRooms}
+                  disabled={isCreatingRoomsByVoice}
+                />
               </div>
+              <p className="text-xs text-neutral-500">
+                Use o microfone para falar todos os cômodos de uma vez
+              </p>
               <Input
                 placeholder="Nome do cômodo"
                 value={newRoomName}
@@ -499,6 +926,7 @@ export default function InspectionCapturePage({ params }: InspectionCapturePageP
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
+                    {/* Input de foto */}
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -508,30 +936,64 @@ export default function InspectionCapturePage({ params }: InspectionCapturePageP
                       className="hidden"
                       aria-label="Capturar foto"
                     />
-                    <Button
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isUploading}
-                      size="lg"
-                      className="w-full h-16 sm:h-20 text-base sm:text-lg"
-                      aria-label="Abrir câmera para tirar foto"
-                    >
-                      {isUploading ? (
-                        <>
-                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                          <span className="text-sm sm:text-base">Analisando com IA...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Camera className="mr-2 h-5 w-5" />
-                          <span className="text-sm sm:text-base">Tirar Foto</span>
-                        </>
-                      )}
-                    </Button>
+
+                    {/* Input de vídeo */}
+                    <input
+                      ref={videoInputRef}
+                      type="file"
+                      accept="video/*"
+                      capture="environment"
+                      onChange={handleVideoSelect}
+                      className="hidden"
+                      aria-label="Gravar vídeo"
+                    />
+
+                    {/* Grid com 2 botões */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <Button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploading || isUploadingVideo}
+                        size="lg"
+                        className="h-16 sm:h-20 text-sm sm:text-base"
+                        aria-label="Abrir câmera para tirar foto"
+                      >
+                        {isUploading ? (
+                          <>
+                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                            <span className="hidden sm:inline">Analisando...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Camera className="mr-2 h-5 w-5" />
+                            <span>Foto</span>
+                          </>
+                        )}
+                      </Button>
+
+                      <Button
+                        onClick={() => videoInputRef.current?.click()}
+                        disabled={isUploading || isUploadingVideo}
+                        size="lg"
+                        variant="outline"
+                        className="h-16 sm:h-20 text-sm sm:text-base border-primary-600 text-primary-600 hover:bg-primary-50"
+                        aria-label="Gravar vídeo de até 30 segundos"
+                      >
+                        {isUploadingVideo ? (
+                          <>
+                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                            <span className="hidden sm:inline">Processando...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Video className="mr-2 h-5 w-5" />
+                            <span>Vídeo</span>
+                          </>
+                        )}
+                      </Button>
+                    </div>
+
                     <p className="text-xs sm:text-sm text-center text-neutral-600">
-                      As fotos serão analisadas automaticamente pela IA
-                    </p>
-                    <p className="text-xs text-center text-neutral-500 italic">
-                      Em dispositivos móveis, a câmera traseira será usada automaticamente
+                      Tire fotos ou grave um vídeo (máx 30s) para análise automática com IA
                     </p>
                   </div>
                 </CardContent>
@@ -626,14 +1088,72 @@ export default function InspectionCapturePage({ params }: InspectionCapturePageP
                               </div>
                             )}
 
-                            {/* User Notes */}
-                            {photo.user_notes && (
-                              <div className="p-2 bg-neutral-50 rounded-md border border-neutral-200">
-                                <p className="text-xs text-neutral-600">
-                                  <span className="font-semibold">Observações:</span> {photo.user_notes}
-                                </p>
-                              </div>
-                            )}
+                            {/* User Notes - Editable with Voice */}
+                            <div className="space-y-2">
+                              {editingNotes === photo.id ? (
+                                <div className="p-3 bg-neutral-50 rounded-lg border border-neutral-200 space-y-3">
+                                  <div className="relative">
+                                    <textarea
+                                      value={notesText}
+                                      onChange={(e) => setNotesText(e.target.value)}
+                                      placeholder="Digite ou fale suas observações..."
+                                      rows={3}
+                                      className="w-full px-3 py-2 pr-12 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                                    />
+                                    <div className="absolute bottom-2 right-2">
+                                      <VoiceInput
+                                        onTranscript={handleVoiceTranscript}
+                                        className="h-8 w-8"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        setEditingNotes(null)
+                                        setNotesText('')
+                                      }}
+                                      className="flex-1"
+                                    >
+                                      Cancelar
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      onClick={() => handleSaveNotes(photo.id)}
+                                      disabled={isSavingNotes}
+                                      className="flex-1"
+                                    >
+                                      {isSavingNotes ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        'Salvar'
+                                      )}
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => handleEditNotes(photo.id, photo.user_notes)}
+                                  className="w-full p-2 bg-neutral-50 hover:bg-neutral-100 rounded-lg border border-neutral-200 border-dashed text-left transition-colors group"
+                                >
+                                  {photo.user_notes ? (
+                                    <p className="text-xs text-neutral-600">
+                                      <span className="font-semibold">Observações:</span> {photo.user_notes}
+                                      <span className="text-primary-600 opacity-0 group-hover:opacity-100 ml-2 text-xs">(editar)</span>
+                                    </p>
+                                  ) : (
+                                    <div className="flex items-center gap-2 text-xs text-neutral-400">
+                                      <Mic className="h-3.5 w-3.5" />
+                                      <span>Adicionar observação por voz ou texto...</span>
+                                    </div>
+                                  )}
+                                </button>
+                              )}
+                            </div>
                           </div>
                         )
                       })}

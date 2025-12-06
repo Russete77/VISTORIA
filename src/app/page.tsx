@@ -12,6 +12,11 @@ import {
   Users,
   Star,
   TrendingUp,
+  Mic,
+  DollarSign,
+  GitCompare,
+  MessageSquare,
+  Palette,
 } from 'lucide-react'
 import { SignInButton, SignUpButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs'
 import { Button } from '@/components/ui/button'
@@ -75,8 +80,8 @@ export default function HomePage() {
             </h1>
 
             <p className="max-w-2xl text-balance text-lg text-neutral-600 md:text-xl">
-              Crie laudos profissionais em minutos. A IA analisa as fotos e
-              detecta problemas automaticamente. Simples, rápido e preciso.
+              Crie laudos profissionais em minutos. Análise com IA, ditado por voz,
+              estimativa de custos e comparação de vistorias. Tudo em um só lugar.
             </p>
 
             <div className="flex flex-col gap-4 sm:flex-row">
@@ -93,14 +98,18 @@ export default function HomePage() {
               </Link>
             </div>
 
-            <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-neutral-500">
+            <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-sm text-neutral-500">
               <div className="flex items-center gap-2">
                 <CheckCircle className="h-4 w-4 text-success-600" />
                 <span>1 vistoria grátis</span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle className="h-4 w-4 text-success-600" />
-                <span>Sem cartão de crédito</span>
+                <span>Ditado por voz</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-success-600" />
+                <span>Estimativa de custos</span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle className="h-4 w-4 text-success-600" />
@@ -159,7 +168,7 @@ export default function HomePage() {
             </div>
 
             <div className="mx-auto grid max-w-6xl gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {/* Feature 1 */}
+              {/* Feature 1 - Captura */}
               <Card className="group border-neutral-200 bg-white p-6 transition-all hover:border-primary-300 hover:shadow-lg">
                 <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary-100 text-primary-600 transition-colors group-hover:bg-primary-600 group-hover:text-white">
                   <Camera className="h-6 w-6" />
@@ -173,7 +182,7 @@ export default function HomePage() {
                 </p>
               </Card>
 
-              {/* Feature 2 */}
+              {/* Feature 2 - IA */}
               <Card className="group border-neutral-200 bg-white p-6 transition-all hover:border-primary-300 hover:shadow-lg">
                 <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary-100 text-primary-600 transition-colors group-hover:bg-primary-600 group-hover:text-white">
                   <Sparkles className="h-6 w-6" />
@@ -187,7 +196,80 @@ export default function HomePage() {
                 </p>
               </Card>
 
-              {/* Feature 3 */}
+              {/* Feature 3 - Voz */}
+              <Card className="group border-neutral-200 bg-white p-6 transition-all hover:border-primary-300 hover:shadow-lg">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 transition-colors group-hover:bg-emerald-600 group-hover:text-white">
+                  <Mic className="h-6 w-6" />
+                </div>
+                <Badge className="mb-3 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Novo</Badge>
+                <h3 className="mb-2 text-xl font-semibold text-neutral-900">
+                  Ditado por Voz
+                </h3>
+                <p className="text-neutral-600">
+                  Dite observações com o microfone e a IA transcreve automaticamente.
+                  Agilize a documentação sem digitar.
+                </p>
+              </Card>
+
+              {/* Feature 4 - Custos */}
+              <Card className="group border-neutral-200 bg-white p-6 transition-all hover:border-primary-300 hover:shadow-lg">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 transition-colors group-hover:bg-emerald-600 group-hover:text-white">
+                  <DollarSign className="h-6 w-6" />
+                </div>
+                <Badge className="mb-3 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Novo</Badge>
+                <h3 className="mb-2 text-xl font-semibold text-neutral-900">
+                  Estimativa de Custos
+                </h3>
+                <p className="text-neutral-600">
+                  Calcule automaticamente o custo de reparos com base em tabela de serviços.
+                  Personalize preços por região.
+                </p>
+              </Card>
+
+              {/* Feature 5 - Comparação */}
+              <Card className="group border-neutral-200 bg-white p-6 transition-all hover:border-primary-300 hover:shadow-lg">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary-100 text-primary-600 transition-colors group-hover:bg-primary-600 group-hover:text-white">
+                  <GitCompare className="h-6 w-6" />
+                </div>
+                <h3 className="mb-2 text-xl font-semibold text-neutral-900">
+                  Comparação Inteligente
+                </h3>
+                <p className="text-neutral-600">
+                  Compare vistorias de entrada e saída com IA que identifica novos
+                  danos, desgaste natural e calcula responsabilidades.
+                </p>
+              </Card>
+
+              {/* Feature 6 - Contestação */}
+              <Card className="group border-neutral-200 bg-white p-6 transition-all hover:border-primary-300 hover:shadow-lg">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-amber-100 text-amber-600 transition-colors group-hover:bg-amber-600 group-hover:text-white">
+                  <MessageSquare className="h-6 w-6" />
+                </div>
+                <Badge className="mb-3 bg-amber-100 text-amber-700 hover:bg-amber-100">Novo</Badge>
+                <h3 className="mb-2 text-xl font-semibold text-neutral-900">
+                  Sistema de Contestação
+                </h3>
+                <p className="text-neutral-600">
+                  Inquilinos podem contestar problemas com fotos de evidência.
+                  Proprietários respondem de forma organizada.
+                </p>
+              </Card>
+
+              {/* Feature 7 - Templates */}
+              <Card className="group border-neutral-200 bg-white p-6 transition-all hover:border-primary-300 hover:shadow-lg">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-purple-100 text-purple-600 transition-colors group-hover:bg-purple-600 group-hover:text-white">
+                  <Palette className="h-6 w-6" />
+                </div>
+                <h3 className="mb-2 text-xl font-semibold text-neutral-900">
+                  Templates Personalizados
+                </h3>
+                <p className="text-neutral-600">
+                  Escolha entre diversos templates de PDF ou crie o seu.
+                  Adicione sua logo e cores da marca.
+                </p>
+              </Card>
+
+              {/* Feature 8 - PDF */}
               <Card className="group border-neutral-200 bg-white p-6 transition-all hover:border-primary-300 hover:shadow-lg">
                 <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary-100 text-primary-600 transition-colors group-hover:bg-primary-600 group-hover:text-white">
                   <FileText className="h-6 w-6" />
@@ -196,40 +278,12 @@ export default function HomePage() {
                   Laudos Profissionais
                 </h3>
                 <p className="text-neutral-600">
-                  Gere PDFs completos com fotos, problemas detectados e
-                  assinaturas digitais em segundos.
+                  Gere PDFs completos com fotos, problemas detectados,
+                  custos estimados e assinaturas digitais.
                 </p>
               </Card>
 
-              {/* Feature 4 */}
-              <Card className="group border-neutral-200 bg-white p-6 transition-all hover:border-primary-300 hover:shadow-lg">
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary-100 text-primary-600 transition-colors group-hover:bg-primary-600 group-hover:text-white">
-                  <Building2 className="h-6 w-6" />
-                </div>
-                <h3 className="mb-2 text-xl font-semibold text-neutral-900">
-                  Comparação Entrada/Saída
-                </h3>
-                <p className="text-neutral-600">
-                  Compare vistorias de entrada e saída para identificar novos
-                  danos e desgaste natural.
-                </p>
-              </Card>
-
-              {/* Feature 5 */}
-              <Card className="group border-neutral-200 bg-white p-6 transition-all hover:border-primary-300 hover:shadow-lg">
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary-100 text-primary-600 transition-colors group-hover:bg-primary-600 group-hover:text-white">
-                  <Zap className="h-6 w-6" />
-                </div>
-                <h3 className="mb-2 text-xl font-semibold text-neutral-900">
-                  Rápido e Eficiente
-                </h3>
-                <p className="text-neutral-600">
-                  Reduza o tempo de criação de laudos de horas para minutos.
-                  Aumente sua produtividade em até 10x.
-                </p>
-              </Card>
-
-              {/* Feature 6 */}
+              {/* Feature 9 - Segurança */}
               <Card className="group border-neutral-200 bg-white p-6 transition-all hover:border-primary-300 hover:shadow-lg">
                 <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary-100 text-primary-600 transition-colors group-hover:bg-primary-600 group-hover:text-white">
                   <Shield className="h-6 w-6" />
@@ -238,7 +292,7 @@ export default function HomePage() {
                   Seguro e Confiável
                 </h3>
                 <p className="text-neutral-600">
-                  Seus dados são criptografados e armazenados com segurança.
+                  Dados criptografados, rate limiting, validação JWT.
                   Conforme LGPD e normas internacionais.
                 </p>
               </Card>
@@ -514,6 +568,36 @@ export default function HomePage() {
                     descartadas. Você tem controle total sobre o laudo final,
                     podendo adicionar observações manualmente ou ajustar a
                     gravidade dos problemas detectados.
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem
+                  value="item-7"
+                  className="rounded-lg border border-neutral-200 bg-white px-6"
+                >
+                  <AccordionTrigger className="text-left font-semibold text-neutral-900 hover:no-underline">
+                    Como funciona o ditado por voz?
+                  </AccordionTrigger>
+                  <AccordionContent className="text-neutral-600">
+                    Basta clicar no ícone do microfone e falar. A IA transcreve
+                    automaticamente o áudio em texto usando tecnologia avançada
+                    (OpenAI Whisper). Ideal para documentar observações durante
+                    a vistoria sem precisar digitar.
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem
+                  value="item-8"
+                  className="rounded-lg border border-neutral-200 bg-white px-6"
+                >
+                  <AccordionTrigger className="text-left font-semibold text-neutral-900 hover:no-underline">
+                    Como funciona a estimativa de custos?
+                  </AccordionTrigger>
+                  <AccordionContent className="text-neutral-600">
+                    O sistema possui uma tabela de serviços de reparo com preços
+                    regionalizados. A IA sugere automaticamente o serviço mais
+                    adequado para cada problema detectado e calcula o custo
+                    estimado. Você pode ajustar manualmente se necessário.
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>

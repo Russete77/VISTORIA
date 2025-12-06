@@ -26,15 +26,15 @@ interface PropertyCardProps {
 const statusConfig = {
   active: {
     label: 'Ativo',
-    className: 'bg-success-100 text-success-700',
+    className: 'bg-success-600/90 text-white backdrop-blur-sm shadow-sm',
   },
   inactive: {
     label: 'Inativo',
-    className: 'bg-neutral-100 text-neutral-700',
+    className: 'bg-neutral-600/90 text-white backdrop-blur-sm shadow-sm',
   },
   pending: {
     label: 'Pendente',
-    className: 'bg-warning-100 text-warning-700',
+    className: 'bg-warning-500/90 text-white backdrop-blur-sm shadow-sm',
   },
 }
 
