@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth, clerkClient } from '@clerk/nextjs/server'
-import { createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient, getOrCreateUser } from '@/lib/supabase/server'
 import { z } from 'zod'
 
 const userUpdateSchema = z.object({
@@ -28,15 +28,29 @@ export async function GET() {
 
     const supabase = createAdminClient()
 
+    // Get or create user (fallback if webhook hasn't synced)
+    let userData
+    try {
+      const result = await getOrCreateUser(userId, supabase)
+      userData = result.data
+    } catch (err: any) {
+      console.error('[User GET] Failed to get or create user:', err?.message)
+      return NextResponse.json(
+        { error: 'Failed to fetch user' },
+        { status: 500 }
+      )
+    }
+
+    // Fetch full user data
     const { data: dbUser, error } = await supabase
       .from('users')
       .select('*')
-      .eq('clerk_id', userId)
+      .eq('id', userData.id)
       .is('deleted_at', null)
       .single()
 
-    if (error) {
-      console.error('Error fetching user:', error)
+    if (error || !dbUser) {
+      console.error('[User GET] Error fetching user:', error)
       return NextResponse.json(
         { error: 'Failed to fetch user' },
         { status: 500 }

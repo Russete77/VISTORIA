@@ -78,7 +78,9 @@ export async function getOrCreateUser(clerkId: string, supabaseClient?: ReturnTy
     .eq('clerk_id', clerkId)
     .single()
 
+  // .single() returns error PGRST116 when no rows found — this is normal, not a DB error
   if (existingUser) {
+    console.log('[getOrCreateUser] Found existing user:', existingUser.id)
     return { data: existingUser }
   }
 
@@ -94,11 +96,16 @@ export async function getOrCreateUser(clerkId: string, supabaseClient?: ReturnTy
     .single()
 
   if (upsertError) {
-    console.error('[getOrCreateUser] Failed to create user:', upsertError)
+    console.error('[getOrCreateUser] Failed to upsert user:', {
+      error: upsertError.message,
+      code: upsertError.code,
+      clerkId
+    })
     throw new Error(`Failed to create user: ${upsertError.message}`)
   }
 
   if (!newUser?.id) {
+    console.error('[getOrCreateUser] Upsert returned no id', { newUser })
     throw new Error('User created but no id returned')
   }
 

@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "next-devtools": {
+      "command": "npx",
+      "args": ["-y", "next-devtools-mcp@latest"]
+    }
+  },
+  "project": "laudo",
+  "type": "nextjs",
+  "appDirectory": "src/app",
+  "publicDirectory": "public",
+  "entrypoint": "src/app",
+  "buildCommand": "npm run build",
+  "startCommand": "npm start",
+  "routes": ["/api/*"],
+  "staticFiles": ["public/icons/icon-144x144.png"],
+  "notes": "MCP config updated to help deployments. Verify environment variables, NODE_ENV and that your production process serves Next.js appDir output."
+}

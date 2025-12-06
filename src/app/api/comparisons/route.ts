@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
-import { createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient, getOrCreateUser } from '@/lib/supabase/server'
 import { comparePhotos } from '@/lib/anthropic/compare'
 import { z } from 'zod'
 import type { InspectionPhoto, ComparisonStatus } from '@/types/database'
@@ -27,14 +27,13 @@ export async function GET(request: NextRequest) {
 
     const supabase = createAdminClient()
 
-    // Get user from database
-    const { data: user } = await supabase
-      .from('users')
-      .select('id')
-      .eq('clerk_id', userId)
-      .single()
-
-    if (!user) {
+    // Get or create user (fallback if webhook hasn't synced)
+    let userData
+    try {
+      const result = await getOrCreateUser(userId, supabase)
+      userData = result.data
+    } catch (err: any) {
+      console.error('[Comparisons GET] Failed to get or create user:', err?.message)
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
@@ -42,7 +41,7 @@ export async function GET(request: NextRequest) {
     const { data: userSettings } = await supabase
       .from('user_settings')
       .select('ai_inspection_strictness')
-      .eq('user_id', user.id)
+      .eq('user_id', userData.id)
       .maybeSingle()
 
 
@@ -105,14 +104,24 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminClient()
 
-    // Get user from database
-    const { data: user } = await supabase
+    // Get or create user (fallback if webhook hasn't synced)
+    let userData
+    try {
+      const result = await getOrCreateUser(userId, supabase)
+      userData = result.data
+    } catch (err: any) {
+      console.error('[Comparisons POST] Failed to get or create user:', err?.message)
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    // Get full user data including credits
+    const { data: user, error: userError } = await supabase
       .from('users')
       .select('id, credits, email')
-      .eq('clerk_id', userId)
+      .eq('id', userData.id)
       .single()
 
-    if (!user) {
+    if (!user || userError) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
