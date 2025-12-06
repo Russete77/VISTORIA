@@ -39,7 +39,7 @@ export async function GET(
       const supabaseAdmin = createAdminClient()
       const newUserResult = await supabaseAdmin
         .from('users')
-        .insert({ clerk_id: userId, email: 'temp@temp.com' })
+        .upsert({ clerk_id: userId, email: `${userId}@no-email.vistoria.internal` }, { onConflict: 'clerk_id' })
         .select('id')
         .single()
       user = newUserResult
@@ -121,7 +121,7 @@ export async function PATCH(
       const supabaseAdmin = createAdminClient()
       const newUserResult = await supabaseAdmin
         .from('users')
-        .insert({ clerk_id: userId, email: 'temp@temp.com' })
+        .upsert({ clerk_id: userId, email: `${userId}@no-email.vistoria.internal` }, { onConflict: 'clerk_id' })
         .select('id')
         .single()
       user = newUserResult
@@ -273,7 +273,7 @@ export async function DELETE(
       const supabaseAdmin = createAdminClient()
       const newUserResult = await supabaseAdmin
         .from('users')
-        .insert({ clerk_id: userId, email: 'temp@temp.com' })
+        .upsert({ clerk_id: userId, email: `${userId}@no-email.vistoria.internal` }, { onConflict: 'clerk_id' })
         .select('id')
         .single()
       user = newUserResult

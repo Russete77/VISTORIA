@@ -34,12 +34,13 @@ export async function GET(request: NextRequest) {
       console.log('[Bookings GET] User not found, attempting to create...', { userId })
       // Usuário não existe, criar automaticamente usando admin client (bypass RLS)
       const supabaseAdmin = createAdminClient()
+      // Use upsert to avoid unique-email conflicts; set a unique placeholder email
       const insertResult = await supabaseAdmin
         .from('users')
-        .insert({
+        .upsert({
           clerk_id: userId,
-          email: 'temp@temp.com', // Será atualizado pelo webhook
-        })
+          email: `${userId}@no-email.vistoria.internal`,
+        }, { onConflict: 'clerk_id' })
         .select('id')
         .single()
 
@@ -167,10 +168,10 @@ export async function POST(request: NextRequest) {
       const supabaseAdmin = createAdminClient()
       const newUserResult = await supabaseAdmin
         .from('users')
-        .insert({
+        .upsert({
           clerk_id: userId,
-          email: 'temp@temp.com', // Será atualizado pelo webhook
-        })
+          email: `${userId}@no-email.vistoria.internal`,
+        }, { onConflict: 'clerk_id' })
         .select('id')
         .single()
 
