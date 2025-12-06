@@ -1,10 +1,11 @@
-import { headers } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { Webhook } from 'svix'
 import { createAdminClient } from '@/lib/supabase/server'
 
+export const runtime = 'node'
+
 export async function POST(req: Request) {
-  const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET
+  const WEBHOOK_SECRET = (process.env.CLERK_WEBHOOK_SECRET || '').trim()
 
   if (!WEBHOOK_SECRET) {
     console.error('Missing CLERK_WEBHOOK_SECRET')
@@ -14,10 +15,9 @@ export async function POST(req: Request) {
     )
   }
 
-  const headerPayload = await headers()
-  const svixId = headerPayload.get('svix-id')
-  const svixTimestamp = headerPayload.get('svix-timestamp')
-  const svixSignature = headerPayload.get('svix-signature')
+  const svixId = req.headers.get('svix-id')
+  const svixTimestamp = req.headers.get('svix-timestamp')
+  const svixSignature = req.headers.get('svix-signature')
 
   if (!svixId || !svixTimestamp || !svixSignature) {
     return NextResponse.json(
@@ -26,8 +26,8 @@ export async function POST(req: Request) {
     )
   }
 
-  const payload = await req.json()
-  const body = JSON.stringify(payload)
+  // Use the raw body for signature verification — DO NOT parse before verify
+  const body = await req.text()
 
   const wh = new Webhook(WEBHOOK_SECRET)
 
@@ -43,13 +43,10 @@ export async function POST(req: Request) {
   }
 
   try {
-    evt = wh.verify(body, {
-      'svix-id': svixId,
-      'svix-timestamp': svixTimestamp,
-      'svix-signature': svixSignature,
-    }) as typeof evt
-  } catch (err) {
-    console.error('Error verifying webhook:', err)
+    // Pass the raw signature header string to svix verify
+    evt = wh.verify(body, svixSignature as string) as typeof evt
+  } catch (err: any) {
+    console.error('Error verifying webhook:', err?.message || err)
     return NextResponse.json(
       { error: 'Invalid signature' },
       { status: 400 }
@@ -68,22 +65,26 @@ export async function POST(req: Request) {
           throw new Error('No email found in webhook data')
         }
 
-        const { error } = await supabase.from('users').insert({
-          clerk_id: data.id,
-          email,
-          first_name: data.first_name || null,
-          last_name: data.last_name || null,
-          full_name: data.first_name && data.last_name
-            ? `${data.first_name} ${data.last_name}`
-            : data.first_name || null,
-          image_url: data.image_url || null,
-          tier: 'free',
-          credits: 1, // Free tier gets 1 inspection
-        })
+        // Use upsert on clerk_id to avoid unique constraint errors
+        const { error } = await supabase.from('users').upsert(
+          {
+            clerk_id: data.id,
+            email,
+            first_name: data.first_name || null,
+            last_name: data.last_name || null,
+            full_name: data.first_name && data.last_name
+              ? `${data.first_name} ${data.last_name}`
+              : data.first_name || null,
+            image_url: data.image_url || null,
+            tier: 'free',
+            credits: 1, // Free tier gets 1 inspection
+          },
+          { onConflict: 'clerk_id' }
+        )
 
         if (error) throw error
 
-        console.log(`User created in database: ${data.id}`)
+        console.log(`User created/updated in database: ${data.id}`)
         break
       }
 
