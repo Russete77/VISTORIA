@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient, getOrCreateUser } from '@/lib/supabase/server'
 import {
   createBookingSchema,
   listBookingsQuerySchema,
@@ -24,39 +24,13 @@ export async function GET(request: NextRequest) {
     const supabase = createAdminClient()
 
     // 3. Buscar ou criar user no Supabase
-    let user = await supabase
-      .from('users')
-      .select('id')
-      .eq('clerk_id', userId)
-      .single()
-
-    if (!user.data) {
-      console.log('[Bookings GET] User not found, attempting to create...', { userId })
-      // Usuário não existe, criar automaticamente usando admin client (bypass RLS)
-      const supabaseAdmin = createAdminClient()
-      // Use upsert to avoid unique-email conflicts; set a unique placeholder email
-      const insertResult = await supabaseAdmin
-        .from('users')
-        .upsert({
-          clerk_id: userId,
-          email: `${userId}@no-email.vistoria.internal`,
-        }, { onConflict: 'clerk_id' })
-        .select('id')
-        .single()
-
-      console.log('[Bookings GET] Insert result:', insertResult)
-
-      if (insertResult.error) {
-        console.error('[Bookings GET] Error creating user:', insertResult.error)
-        return NextResponse.json({ error: 'Failed to create user', details: insertResult.error }, { status: 500 })
-      }
-
-      user = insertResult
-    }
-
-    if (!user.data) {
-      console.error('[Bookings GET] Failed to get/create user')
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    let userData
+    try {
+      const result = await getOrCreateUser(userId, supabase)
+      userData = result.data
+    } catch (err: any) {
+      console.error('[Bookings GET] Failed to get or create user:', err?.message)
+      return NextResponse.json({ error: 'Failed to get user', details: err?.message }, { status: 500 })
     }
 
     // 4. Parse query params
@@ -76,7 +50,7 @@ export async function GET(request: NextRequest) {
         checkout_inspection:inspections!bookings_checkout_inspection_id_fkey(id, status, completed_at),
         comparison:comparisons(id, status, differences_detected)
       `)
-      .eq('user_id', user.data.id)
+      .eq('user_id', userData.id)
       .is('deleted_at', null)
       .order('check_in_date', { ascending: false })
 

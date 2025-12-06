@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
-import { createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient, getOrCreateUser } from '@/lib/supabase/server'
 import { z } from 'zod'
 
 /**
@@ -36,19 +36,14 @@ export async function GET(request: NextRequest) {
 
     const supabase = createAdminClient()
 
-    // Get user from database
-    const { data: user, error: userError } = await supabase
-      .from('users')
-      .select('id')
-      .eq('clerk_id', userId)
-      .single()
-
-    if (userError || !user) {
-      console.error('User not found in database:', { userId, error: userError })
-      return NextResponse.json({
-        error: 'User not found in database. Please sign out and sign in again, or contact support.',
-        details: 'The webhook may not have created your user account yet.'
-      }, { status: 404 })
+    // Get or create user from database (fallback if webhook hasn't synced yet)
+    let userData
+    try {
+      const result = await getOrCreateUser(userId, supabase)
+      userData = result.data
+    } catch (err: any) {
+      console.error('[Properties GET] Failed to get or create user:', err?.message)
+      return NextResponse.json({ error: 'Failed to get user', details: err?.message }, { status: 500 })
     }
 
     // Get search params
@@ -61,7 +56,7 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from('properties')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userData.id)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
 
@@ -134,19 +129,14 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminClient()
 
-    // Get user from database
-    const { data: user, error: userError } = await supabase
-      .from('users')
-      .select('id')
-      .eq('clerk_id', userId)
-      .single()
-
-    if (userError || !user) {
-      console.error('User not found in database:', { userId, error: userError })
-      return NextResponse.json({
-        error: 'User not found in database. Please sign out and sign in again, or contact support.',
-        details: 'The webhook may not have created your user account yet.'
-      }, { status: 404 })
+    // Get or create user from database (fallback if webhook hasn't synced yet)
+    let userData
+    try {
+      const result = await getOrCreateUser(userId, supabase)
+      userData = result.data
+    } catch (err: any) {
+      console.error('[Properties POST] Failed to get or create user:', err?.message)
+      return NextResponse.json({ error: 'Failed to get user', details: err?.message }, { status: 500 })
     }
 
     // Parse and validate request body
@@ -157,7 +147,7 @@ export async function POST(request: NextRequest) {
     const { data: property, error } = await supabase
       .from('properties')
       .insert({
-        user_id: user.id,
+        user_id: userData.id,
         ...validatedData,
         status: 'active', // Default status (must be 'active', 'inactive', or 'archived')
       })

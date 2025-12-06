@@ -62,3 +62,46 @@ export function createAdminClient() {
     }
   )
 }
+
+/**
+ * Get or create a user in the database
+ * Used when the Clerk webhook fails to sync the user
+ * Returns { data: { id } } or throws an error
+ */
+export async function getOrCreateUser(clerkId: string, supabaseClient?: ReturnType<typeof createAdminClient>) {
+  const supabase = supabaseClient || createAdminClient()
+
+  // Try to get existing user
+  const { data: existingUser, error: selectError } = await supabase
+    .from('users')
+    .select('id')
+    .eq('clerk_id', clerkId)
+    .single()
+
+  if (existingUser) {
+    return { data: existingUser }
+  }
+
+  // User doesn't exist, create as fallback
+  console.log('[getOrCreateUser] Creating fallback user for clerk_id:', clerkId)
+  const { data: newUser, error: upsertError } = await supabase
+    .from('users')
+    .upsert({
+      clerk_id: clerkId,
+      email: `${clerkId}@no-email.vistoria.internal`,
+    }, { onConflict: 'clerk_id' })
+    .select('id')
+    .single()
+
+  if (upsertError) {
+    console.error('[getOrCreateUser] Failed to create user:', upsertError)
+    throw new Error(`Failed to create user: ${upsertError.message}`)
+  }
+
+  if (!newUser?.id) {
+    throw new Error('User created but no id returned')
+  }
+
+  console.log('[getOrCreateUser] User created successfully:', newUser.id)
+  return { data: newUser }
+}
