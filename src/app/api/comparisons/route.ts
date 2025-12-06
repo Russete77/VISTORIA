@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
         move_in_inspection:inspections!comparisons_move_in_inspection_id_fkey(id, type, created_at),
         move_out_inspection:inspections!comparisons_move_out_inspection_id_fkey(id, type, created_at)
       `)
-      .eq('user_id', user.id)
+      .eq('user_id', userData.id)
       .order('created_at', { ascending: false })
 
     // Apply filters
