@@ -43,14 +43,19 @@ export async function POST(req: Request) {
   }
 
   try {
-    // Pass svix headers object to svix verify (types require header map)
+    // Svix verify: body and headers map with svix-* keys
     evt = wh.verify(body, {
-      'svix-id': svixId as string,
-      'svix-timestamp': svixTimestamp as string,
-      'svix-signature': svixSignature as string,
+      'svix-id': svixId,
+      'svix-timestamp': svixTimestamp,
+      'svix-signature': svixSignature,
     }) as typeof evt
   } catch (err: any) {
-    console.error('Error verifying webhook:', err?.message || err)
+    console.error('[Clerk Webhook] Signature verification failed', {
+      reason: err?.message || String(err),
+      bodyLength: body?.length,
+      hasSignature: !!svixSignature,
+      hasSecret: !!WEBHOOK_SECRET,
+    })
     return NextResponse.json(
       { error: 'Invalid signature' },
       { status: 400 }
@@ -66,6 +71,7 @@ export async function POST(req: Request) {
         const email = data.email_addresses[0]?.email_address
 
         if (!email) {
+          console.warn('[Clerk Webhook] No email in user.created event', { userId: data.id })
           throw new Error('No email found in webhook data')
         }
 
@@ -86,9 +92,12 @@ export async function POST(req: Request) {
           { onConflict: 'clerk_id' }
         )
 
-        if (error) throw error
+        if (error) {
+          console.error('[Clerk Webhook] Upsert failed for user.created', { userId: data.id, error })
+          throw error
+        }
 
-        console.log(`User created/updated in database: ${data.id}`)
+        console.log(`[Clerk Webhook] User created/synced: ${data.id}`)
         break
       }
 
@@ -109,9 +118,12 @@ export async function POST(req: Request) {
           })
           .eq('clerk_id', data.id)
 
-        if (error) throw error
+        if (error) {
+          console.error('[Clerk Webhook] Update failed for user.updated', { userId: data.id, error })
+          throw error
+        }
 
-        console.log(`User updated in database: ${data.id}`)
+        console.log(`[Clerk Webhook] User updated: ${data.id}`)
         break
       }
 
@@ -123,19 +135,26 @@ export async function POST(req: Request) {
           })
           .eq('clerk_id', data.id)
 
-        if (error) throw error
+        if (error) {
+          console.error('[Clerk Webhook] Soft-delete failed', { userId: data.id, error })
+          throw error
+        }
 
-        console.log(`User soft-deleted in database: ${data.id}`)
+        console.log(`[Clerk Webhook] User soft-deleted: ${data.id}`)
         break
       }
 
       default:
-        console.log(`Unhandled webhook event type: ${type}`)
+        console.warn(`[Clerk Webhook] Unhandled event type: ${type}`)
     }
 
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error('Error processing webhook:', error)
+    return NextResponse.json({ success: true }, { status: 200 })
+  } catch (error: any) {
+    console.error('[Clerk Webhook] Processing error', {
+      eventType: type,
+      reason: error?.message || String(error),
+      userId: data?.id,
+    })
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
