@@ -68,7 +68,8 @@ export async function POST(
     const bytes = await videoFile.arrayBuffer()
     const buffer = Buffer.from(bytes)
 
-    const tempDir = join(process.cwd(), '.tmp')
+    // Use /tmp for serverless environments (Vercel, Lambda, etc.)
+    const tempDir = '/tmp'
     if (!existsSync(tempDir)) {
       await mkdir(tempDir, { recursive: true })
     }

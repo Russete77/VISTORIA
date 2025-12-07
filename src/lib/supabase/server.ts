@@ -84,16 +84,34 @@ export async function getOrCreateUser(clerkId: string, supabaseClient?: ReturnTy
     throw new Error('clerkId is required')
   }
 
-  const supabase = supabaseClient || createAdminClient()
+  let supabase = supabaseClient || createAdminClient()
   console.log('[getOrCreateUser] Supabase client created')
 
   // Try to get existing user
   console.log('[getOrCreateUser] Querying for existing user with clerk_id:', clerkId)
-  const { data: existingUser, error: selectError } = await supabase
+  let { data: existingUser, error: selectError } = await supabase
     .from('users')
     .select('id')
     .eq('clerk_id', clerkId)
     .single()
+
+  // Check if it's an auth error - if so, retry with anon key
+  if (selectError?.message?.includes('Invalid API key') || selectError?.message?.includes('invalid_grant')) {
+    console.warn('[getOrCreateUser] ⚠️ Service role key failed, retrying with anon key...')
+    supabase = createSupabaseClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    
+    const retry = await supabase
+      .from('users')
+      .select('id')
+      .eq('clerk_id', clerkId)
+      .single()
+    
+    existingUser = retry.data
+    selectError = retry.error
+  }
 
   if (selectError && selectError.code !== 'PGRST116') {
     console.error('[getOrCreateUser] Unexpected error querying user:', {
@@ -112,7 +130,7 @@ export async function getOrCreateUser(clerkId: string, supabaseClient?: ReturnTy
 
   // User doesn't exist, create as fallback
   console.log('[getOrCreateUser] User not found, creating fallback user for clerk_id:', clerkId)
-  const { data: newUser, error: upsertError } = await supabase
+  let { data: newUser, error: upsertError } = await supabase
     .from('users')
     .upsert({
       clerk_id: clerkId,
@@ -120,6 +138,13 @@ export async function getOrCreateUser(clerkId: string, supabaseClient?: ReturnTy
     }, { onConflict: 'clerk_id' })
     .select('id')
     .single()
+
+  // If upsert also fails with invalid API key, this is a critical issue
+  if (upsertError?.message?.includes('Invalid API key')) {
+    console.error('[getOrCreateUser] ✗✗✗ CRITICAL: Both service role and anon key failed!')
+    console.error('[getOrCreateUser] This likely means the Supabase project is inaccessible or keys are wrong')
+    throw new Error(`Supabase authentication failed: ${upsertError.message}`)
+  }
 
   if (upsertError) {
     console.error('[getOrCreateUser] ✗ Failed to upsert user:', {
