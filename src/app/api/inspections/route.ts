@@ -26,20 +26,31 @@ const inspectionSchema = z.object({
 // GET: List all inspections
 export async function GET(request: NextRequest) {
   try {
+    console.log('[Inspections GET] START')
     const { userId } = await auth()
+    console.log('[Inspections GET] Clerk userId:', userId)
+    
     if (!userId) {
+      console.warn('[Inspections GET] No userId from auth()')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    console.log('[Inspections GET] Creating Supabase admin client...')
     const supabase = createAdminClient()
 
     // Get or create user (fallback if webhook hasn't synced)
     let userData
     try {
+      console.log('[Inspections GET] Calling getOrCreateUser with userId:', userId)
       const result = await getOrCreateUser(userId, supabase)
       userData = result.data
+      console.log('[Inspections GET] ✓ getOrCreateUser returned:', userData?.id)
     } catch (err: any) {
-      console.error('[Inspections GET] Failed to get or create user:', err?.message)
+      console.error('[Inspections GET] ✗ Failed to get or create user:', {
+        message: err?.message,
+        stack: err?.stack,
+        userId
+      })
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 

@@ -20,20 +20,31 @@ const createComparisonSchema = z.object({
 // GET: List all comparisons
 export async function GET(request: NextRequest) {
   try {
+    console.log('[Comparisons GET] START')
     const { userId } = await auth()
+    console.log('[Comparisons GET] Clerk userId:', userId)
+    
     if (!userId) {
+      console.warn('[Comparisons GET] No userId from auth()')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    console.log('[Comparisons GET] Creating Supabase admin client...')
     const supabase = createAdminClient()
 
     // Get or create user (fallback if webhook hasn't synced)
     let userData
     try {
+      console.log('[Comparisons GET] Calling getOrCreateUser with userId:', userId)
       const result = await getOrCreateUser(userId, supabase)
       userData = result.data
+      console.log('[Comparisons GET] ✓ getOrCreateUser returned:', userData?.id)
     } catch (err: any) {
-      console.error('[Comparisons GET] Failed to get or create user:', err?.message)
+      console.error('[Comparisons GET] ✗ Failed to get or create user:', {
+        message: err?.message,
+        stack: err?.stack,
+        userId
+      })
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 

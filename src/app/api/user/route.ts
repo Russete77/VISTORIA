@@ -17,30 +17,41 @@ const userUpdateSchema = z.object({
 
 export async function GET() {
   try {
+    console.log('[User GET] START')
     const { userId } = await auth()
+    console.log('[User GET] Clerk userId:', userId)
 
     if (!userId) {
+      console.warn('[User GET] No userId from auth()')
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       )
     }
 
+    console.log('[User GET] Creating Supabase admin client...')
     const supabase = createAdminClient()
 
     // Get or create user (fallback if webhook hasn't synced)
     let userData
     try {
+      console.log('[User GET] Calling getOrCreateUser with userId:', userId)
       const result = await getOrCreateUser(userId, supabase)
       userData = result.data
+      console.log('[User GET] ✓ getOrCreateUser returned:', userData?.id)
     } catch (err: any) {
-      console.error('[User GET] Failed to get or create user:', err?.message)
+      console.error('[User GET] ✗ Failed to get or create user:', {
+        message: err?.message,
+        stack: err?.stack,
+        userId
+      })
       return NextResponse.json(
         { error: 'Failed to fetch user' },
         { status: 500 }
       )
     }
 
+    console.log('[User GET] Fetching full user data from users table...')
     // Fetch full user data
     const { data: dbUser, error } = await supabase
       .from('users')
@@ -50,12 +61,19 @@ export async function GET() {
       .single()
 
     if (error || !dbUser) {
-      console.error('[User GET] Error fetching user:', error)
+      console.error('[User GET] ✗ Error fetching user:', {
+        error: error?.message,
+        errorCode: error?.code,
+        errorDetails: error?.details,
+        userId: userData.id
+      })
       return NextResponse.json(
         { error: 'Failed to fetch user' },
         { status: 500 }
       )
     }
+    
+    console.log('[User GET] ✓ User found:', dbUser.id)
 
     // Update last login
     await supabase

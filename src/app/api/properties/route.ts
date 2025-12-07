@@ -29,20 +29,31 @@ const propertySchema = z.object({
 // GET: List all properties
 export async function GET(request: NextRequest) {
   try {
+    console.log('[Properties GET] START')
     const { userId } = await auth()
+    console.log('[Properties GET] Clerk userId:', userId)
+    
     if (!userId) {
+      console.warn('[Properties GET] No userId from auth()')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    console.log('[Properties GET] Creating Supabase admin client...')
     const supabase = createAdminClient()
 
     // Get or create user from database (fallback if webhook hasn't synced yet)
     let userData
     try {
+      console.log('[Properties GET] Calling getOrCreateUser with userId:', userId)
       const result = await getOrCreateUser(userId, supabase)
       userData = result.data
+      console.log('[Properties GET] ✓ getOrCreateUser returned:', userData?.id)
     } catch (err: any) {
-      console.error('[Properties GET] Failed to get or create user:', err?.message)
+      console.error('[Properties GET] ✗ Failed to get or create user:', {
+        message: err?.message,
+        stack: err?.stack,
+        userId
+      })
       return NextResponse.json({ error: 'Failed to get user', details: err?.message }, { status: 500 })
     }
 
