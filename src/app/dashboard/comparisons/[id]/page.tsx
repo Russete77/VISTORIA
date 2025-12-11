@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { use } from 'react'
 import { ArrowLeft, Download, Mail, Loader2, AlertCircle, CheckCircle2, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -39,6 +40,7 @@ export default function ComparisonDetailPage({
 }: {
   params: Promise<{ id: string }>
 }) {
+  const router = useRouter()
   const resolvedParams = use(params)
   const { getComparison } = useComparisons({ autoFetch: false })
   const [comparison, setComparison] = useState<ComparisonWithDetails | null>(null)
@@ -206,7 +208,7 @@ export default function ComparisonDetailPage({
   }, {} as Record<string, typeof comparison.differences>)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-4 sm:px-0">
       {/* Header */}
       <div>
         <Breadcrumbs
@@ -217,31 +219,42 @@ export default function ComparisonDetailPage({
           ]}
         />
 
-        <div className="flex items-center justify-between mt-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold tracking-tight">
-                {comparison.property.name}
-              </h1>
-              <Badge className={status.color} variant="default">
-                {status.label}
-              </Badge>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mt-4">
+          <div className="flex items-start gap-3">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => router.back()} 
+              className="shrink-0 sm:hidden mt-1"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight">
+                  {comparison.property.name}
+                </h1>
+                <Badge className={status.color} variant="default">
+                  {status.label}
+                </Badge>
+              </div>
+              <p className="text-sm sm:text-base text-muted-foreground mt-1">
+                {comparison.property.address}
+              </p>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                Criada em {format(new Date(comparison.created_at), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
+              </p>
             </div>
-            <p className="text-muted-foreground mt-1">
-              {comparison.property.address}
-            </p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Criada em {format(new Date(comparison.created_at), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
-            </p>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:gap-2 w-full sm:w-auto">
             {/* Email Dialog */}
             <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
               <DialogTrigger asChild>
                 <Button
                   variant="outline"
                   disabled={comparison.status !== 'completed'}
+                  className="w-full sm:w-auto"
                 >
                   <Mail className="w-4 h-4 mr-2" />
                   Enviar Email
@@ -326,6 +339,7 @@ export default function ComparisonDetailPage({
               variant="outline"
               onClick={handleGeneratePDF}
               disabled={isGeneratingPDF || comparison.status !== 'completed'}
+              className="w-full sm:w-auto"
             >
               {isGeneratingPDF ? (
                 <>
