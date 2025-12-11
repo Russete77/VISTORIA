@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Plus, Search, Download, ArrowRight, Trash2, Loader2, Eye } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Plus, Search, Download, ArrowRight, Trash2, Loader2, Eye, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -38,6 +39,7 @@ import type { InspectionType, InspectionStatus } from '@/types/database'
  */
 
 export default function InspectionsPage() {
+  const router = useRouter()
   const { inspections, isLoading, error, fetchInspections } = useInspections()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<InspectionStatus | 'all'>('all')
@@ -93,18 +95,28 @@ export default function InspectionsPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 px-4 sm:px-0">
       {/* Page Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-neutral-900 mb-2">
-            Vistorias
-          </h1>
-          <p className="text-neutral-600">
-            Gerencie todas as suas vistorias e laudos
-          </p>
+        <div className="flex items-center gap-3">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => router.back()} 
+            className="shrink-0 sm:hidden"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900 mb-1">
+              Vistorias
+            </h1>
+            <p className="text-sm sm:text-base text-neutral-600">
+              Gerencie todas as suas vistorias e laudos
+            </p>
+          </div>
         </div>
-        <Button asChild size="lg">
+        <Button asChild size="lg" className="w-full sm:w-auto">
           <Link href="/dashboard/inspections/new">
             <Plus className="mr-2 h-5 w-5" />
             Nova Vistoria

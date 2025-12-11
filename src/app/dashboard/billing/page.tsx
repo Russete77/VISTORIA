@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { CreditCard, TrendingUp, Package, Receipt, Plus, Download } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { CreditCard, TrendingUp, Package, Receipt, Plus, Download, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -48,6 +49,7 @@ const typeLabels: Record<TransactionType, string> = {
 }
 
 export default function BillingPage() {
+  const router = useRouter()
   const [data, setData] = useState<BillingData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -94,18 +96,28 @@ export default function BillingPage() {
   const tierInfo = USER_TIERS[data.user.tier]
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 px-4 sm:px-0">
       {/* Page Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-neutral-900 mb-2">
-            Financeiro
-          </h1>
-          <p className="text-neutral-600">
-            Gerencie seus créditos, planos e pagamentos
-          </p>
+        <div className="flex items-center gap-3">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => router.back()} 
+            className="shrink-0 sm:hidden"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900 mb-1">
+              Financeiro
+            </h1>
+            <p className="text-sm sm:text-base text-neutral-600">
+              Gerencie seus créditos, planos e pagamentos
+            </p>
+          </div>
         </div>
-        <Button asChild size="lg">
+        <Button asChild size="lg" className="w-full sm:w-auto">
           <Link href="/dashboard/billing/purchase">
             <Plus className="mr-2 h-5 w-5" />
             Comprar Créditos

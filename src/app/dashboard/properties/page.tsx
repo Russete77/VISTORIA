@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Plus, Search } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Plus, Search, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -22,6 +23,7 @@ import { useProperties } from '@/hooks/use-properties'
  */
 
 export default function PropertiesPage() {
+  const router = useRouter()
   const { properties, isLoading, error, fetchProperties } = useProperties()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -44,11 +46,21 @@ export default function PropertiesPage() {
     <div className="space-y-6 sm:space-y-8">
       {/* Page Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between px-4 sm:px-0">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900 mb-2">Imóveis</h1>
-          <p className="text-sm sm:text-base text-neutral-600">
-            Gerencie todos os seus imóveis cadastrados
-          </p>
+        <div className="flex items-center gap-3">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => router.back()} 
+            className="shrink-0 sm:hidden"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900 mb-1">Imóveis</h1>
+            <p className="text-sm sm:text-base text-neutral-600">
+              Gerencie todos os seus imóveis cadastrados
+            </p>
+          </div>
         </div>
         <Button asChild size="lg" className="w-full sm:w-auto">
           <Link href="/dashboard/properties/new">

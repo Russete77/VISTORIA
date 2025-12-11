@@ -5,8 +5,9 @@ import Link from 'next/link'
 import {
   Users, Crown, Shield, Plus, Mail, MoreVertical, Trash2, Search,
   ClipboardCheck, Calendar, Activity,
-  FileText, AlertCircle, CheckCircle2
+  FileText, AlertCircle, CheckCircle2, ArrowLeft
 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -88,6 +89,7 @@ const ACTION_LABELS: Record<string, string> = {
 }
 
 export default function TeamPage() {
+  const router = useRouter()
   const { user, isLoading: authLoading, isDeveloper } = useAuth()
   const {
     members,
@@ -179,14 +181,24 @@ export default function TeamPage() {
 
   if (needsUpgrade && !isDeveloper) {
     return (
-      <div className="space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-neutral-900 mb-2">
-            Equipe
-          </h1>
-          <p className="text-neutral-600">
-            Colabore com vistoriadores e gerencie permissões
-          </p>
+      <div className="space-y-8 px-4 sm:px-0">
+        <div className="flex items-center gap-3">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => router.back()} 
+            className="shrink-0 sm:hidden"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900 mb-2">
+              Equipe
+            </h1>
+            <p className="text-sm sm:text-base text-neutral-600">
+              Colabore com vistoriadores e gerencie permissões
+            </p>
+          </div>
         </div>
 
         <Card className="border-primary-200 bg-gradient-to-br from-primary-50 to-white">
@@ -241,18 +253,27 @@ export default function TeamPage() {
     )
   }
 
-  // Show team management interface
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-4 sm:px-0">
       {/* Page Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-neutral-900 mb-2">
-            Equipe
-          </h1>
-          <p className="text-neutral-600">
-            Gerencie vistoriadores, permissões e acompanhe a produtividade
-          </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-center gap-3">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => router.back()} 
+            className="shrink-0 sm:hidden"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900 mb-2">
+              Equipe
+            </h1>
+            <p className="text-sm sm:text-base text-neutral-600">
+              Gerencie vistoriadores, permissões e acompanhe a produtividade
+            </p>
+          </div>
         </div>
 
         <Dialog open={isAddMemberOpen} onOpenChange={setIsAddMemberOpen}>
