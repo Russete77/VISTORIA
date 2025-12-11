@@ -192,14 +192,14 @@ export default function PricesSettingsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" asChild>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+        <Button variant="ghost" size="icon" asChild className="w-fit">
           <Link href="/dashboard/settings">
             <ArrowLeft className="h-5 w-5" />
           </Link>
         </Button>
         <div>
-          <h1 className="text-3xl font-bold text-neutral-900">Tabela de Preços</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-neutral-900">Tabela de Preços</h1>
           <p className="text-sm text-neutral-600 mt-1">
             Personalize os preços dos serviços de reparo para sua região
           </p>
@@ -270,7 +270,7 @@ export default function PricesSettingsPage() {
               }`}
             >
               <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-semibold text-neutral-900">{service.name}</h3>
@@ -286,7 +286,7 @@ export default function PricesSettingsPage() {
                       )}
                     </div>
                     {service.description && (
-                      <p className="text-sm text-neutral-600 mt-1 line-clamp-1">
+                      <p className="text-sm text-neutral-600 mt-1 line-clamp-2 sm:line-clamp-1">
                         {service.description}
                       </p>
                     )}
@@ -301,9 +301,9 @@ export default function PricesSettingsPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <div className="font-semibold text-lg text-neutral-900">
+                  <div className="flex items-center justify-between sm:justify-end gap-3">
+                    <div className="sm:text-right">
+                      <div className="font-semibold text-base sm:text-lg text-neutral-900">
                         {formatPrice(service.effective_price.min)} - {formatPrice(service.effective_price.max)}
                       </div>
                       {service.effective_price.is_custom && (

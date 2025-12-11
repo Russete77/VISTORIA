@@ -198,6 +198,45 @@ export async function POST(
       console.log('[Technical Analysis] Report saved to database')
     }
 
+    // Update photo_problems with estimated costs from technical report
+    try {
+      console.log('[Cost Estimation] Updating problem costs from AI analysis...')
+
+      for (const comodo of technicalReport.comodos) {
+        if (!comodo.danos || comodo.danos.length === 0) continue
+
+        // Find matching photos and problems for this room
+        const roomPhotos = photos?.filter((p: any) => p.room_name === comodo.nome) || []
+
+        for (const photo of roomPhotos) {
+          if (!photo.problems || photo.problems.length === 0) continue
+
+          for (const problem of photo.problems) {
+            // Try to match problem by description
+            const matchingDano = comodo.danos.find((dano) =>
+              problem.description.toLowerCase().includes(dano.descricao.toLowerCase().slice(0, 20)) ||
+              dano.descricao.toLowerCase().includes(problem.description.toLowerCase().slice(0, 20))
+            )
+
+            if (matchingDano && matchingDano.custo_estimado > 0) {
+              // Update problem with estimated cost
+              await supabase
+                .from('photo_problems')
+                .update({ estimated_repair_cost: matchingDano.custo_estimado })
+                .eq('id', problem.id)
+
+              console.log(`[Cost Estimation] Updated problem ${problem.id} with cost R$ ${matchingDano.custo_estimado}`)
+            }
+          }
+        }
+      }
+
+      console.log('[Cost Estimation] Cost updates complete')
+    } catch (costError) {
+      console.error('[Cost Estimation] Error updating costs:', costError)
+      // Don't fail - cost updates are optional
+    }
+
     // Parse request body for template_id (optional)
     let templateConfig: PDFTemplateConfig = DEFAULT_TEMPLATE_CONFIG
     try {

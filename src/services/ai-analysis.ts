@@ -117,6 +117,12 @@ IMPORTANTE: Use SEMPRE o nome "${roomName}" ao se referir a este ambiente nas su
 ATENÇÃO - ANÁLISE FIEL À REALIDADE:
 Seja CRÍTICO mas PRECISO. Diferencie entre:
 
+**IMPORTANTE - ORIENTAÇÃO DA FOTO:**
+- PISO = superfície HORIZONTAL na PARTE INFERIOR da foto
+- TETO/FORRO = superfície HORIZONTAL na PARTE SUPERIOR da foto
+- PAREDES = superfícies VERTICAIS nas laterais
+- NÃO confunda piso com teto! Observe a orientação!
+
 1. CARACTERÍSTICAS NORMAIS DO MATERIAL vs DEFEITOS:
    - Piso de madeira em tábuas = junções entre peças são NORMAIS
    - Piso taco/parquet = pequenos blocos conectados são o DESIGN, NÃO rachaduras
@@ -290,6 +296,46 @@ function validateSeverity(severity: string): ProblemSeverity {
     : 'medium'
 }
 
+export async function analyzePhotoBase64(
+  base64Data: string,
+  roomName: string,
+  roomCategory: string
+): Promise<PhotoAnalysisResult> {
+  try {
+    const prompt = generateAnalysisPrompt(roomName, roomCategory)
+
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2048,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: 'image/png',
+                data: base64Data,
+              },
+            },
+            {
+              type: 'text',
+              text: prompt,
+            },
+          ],
+        },
+      ],
+    })
+
+    const responseText = message.content[0].type === 'text' ? message.content[0].text : ''
+    return parseAIResponse(responseText)
+  } catch (error) {
+    console.error('AI analysis failed:', error)
+    throw new Error('Failed to analyze photo with AI')
+  }
+}
+
 export async function batchAnalyzePhotos(
   photos: Array<{
     url: string
@@ -317,3 +363,135 @@ export async function batchAnalyzePhotos(
     }
   })
 }
+
+/**
+ * Analyze video frame with optimized prompt for lower quality images
+ * More tolerant of compression artifacts, motion blur, and lower resolution
+ */
+export async function analyzeVideoFrame(
+  base64Data: string,
+  roomName: string,
+  roomCategory: string,
+  frameNumber: number,
+  transcription?: string
+): Promise<PhotoAnalysisResult> {
+  try {
+    const videoPrompt = generateVideoFramePrompt(roomName, roomCategory, frameNumber, transcription)
+
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1024, // Shorter response for video frames
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: 'image/png',
+                data: base64Data,
+              },
+            },
+            {
+              type: 'text',
+              text: videoPrompt,
+            },
+          ],
+        },
+      ],
+    })
+
+    const responseText = message.content[0].type === 'text' ? message.content[0].text : ''
+    return parseAIResponse(responseText)
+  } catch (error) {
+    console.error('Video frame analysis failed:', error)
+    return {
+      hasProblems: false,
+      summary: `Frame ${frameNumber} do ${roomName} - análise não disponível`,
+      confidence: 0,
+      detailedAnalysis: {},
+      problems: [],
+    }
+  }
+}
+
+/**
+ * Generate optimized prompt for video frame analysis
+ * Focused on obvious problems, tolerant of image quality issues
+ */
+function generateVideoFramePrompt(
+  roomName: string, 
+  roomCategory: string, 
+  frameNumber: number,
+  transcription?: string
+): string {
+  const categoryMap: Record<string, string> = {
+    'living_room': 'sala de estar',
+    'kitchen': 'cozinha',
+    'bedroom': 'quarto',
+    'bathroom': 'banheiro',
+    'balcony': 'varanda',
+    'garage': 'garagem',
+    'laundry': 'área de serviço',
+    'hallway': 'corredor',
+    'entrance': 'entrada',
+    'other': 'outro ambiente'
+  }
+
+  const categoryPt = categoryMap[roomCategory] || roomCategory
+
+  let transcriptionContext = ''
+  if (transcription) {
+    transcriptionContext = `
+TRANSCRIÇÃO DO VÍDEO (áudio do vistoriador):
+"${transcription}"
+
+Use esta transcrição como contexto adicional para sua análise.
+`
+  }
+
+  return `Você é um vistoriador analisando o FRAME ${frameNumber} de um VÍDEO de vistoria.
+Cômodo: "${roomName}" (tipo: ${categoryPt})
+${transcriptionContext}
+IMPORTANTE - ESTE É UM FRAME DE VÍDEO:
+- A qualidade pode ser inferior a uma foto (compressão, motion blur)
+- Foque APENAS em problemas CLARAMENTE visíveis e ÓBVIOS
+- NÃO reporte artefatos de compressão de vídeo como problemas
+- NÃO reporte desfoque de movimento como problema
+- Seja CONSERVADOR - se não tem certeza, NÃO reporte
+
+ANALISE APENAS O QUE É CLARAMENTE VISÍVEL:
+- Danos estruturais ÓBVIOS (rachaduras grandes, buracos)
+- Manchas/infiltrações EVIDENTES (não sombras)
+- Problemas de conservação CLAROS
+- Estado geral do ambiente
+
+Retorne em JSON:
+{
+  "hasProblems": boolean,
+  "summary": "resumo BREVE do estado do ${roomName} visível neste frame (máx 100 palavras)",
+  "confidence": 0.0-1.0 (reduza se imagem borrada ou escura),
+  "detailedAnalysis": {
+    "piso": "estado se visível",
+    "parede": "estado se visível",
+    "forro": "estado se visível"
+  },
+  "problems": [
+    {
+      "description": "apenas problemas ÓBVIOS e CLAROS",
+      "severity": "low" | "medium" | "high",
+      "location": "localização",
+      "suggestedAction": "ação",
+      "confidence": 0.0-1.0
+    }
+  ]
+}
+
+REGRAS:
+1. Máximo 2 problemas por frame (priorize os mais graves)
+2. Confidence < 0.5 se imagem com baixa qualidade
+3. Seja BREVE e OBJETIVO
+4. NÃO invente problemas que não são claramente visíveis`
+}
+

@@ -22,17 +22,17 @@ import { cn } from '@/lib/utils'
 // Itens principais (aparecem sempre na linha de baixo quando fechado)
 const mainNavItems = [
   { name: 'Home', href: '/dashboard', icon: Home },
+  { name: 'Agenda', href: '/dashboard/bookings', icon: Calendar },
   { name: 'Imóveis', href: '/dashboard/properties', icon: Building2 },
-  { name: 'Reservas', href: '/dashboard/bookings', icon: Calendar },
   { name: 'Vistorias', href: '/dashboard/inspections', icon: ClipboardCheck },
 ]
 
 // Itens extras (aparecem na linha de baixo quando expandido)
 const extraNavItems = [
   { name: 'Comparar', href: '/dashboard/comparisons', icon: GitCompare },
+  { name: 'Configurações', href: '/dashboard/settings', icon: Settings },
   { name: 'Equipe', href: '/dashboard/team', icon: Users },
   { name: 'Financeiro', href: '/dashboard/billing', icon: DollarSign },
-  { name: 'Configurações', href: '/dashboard/settings', icon: Settings },
 ]
 
 export function MobileBottomNav() {

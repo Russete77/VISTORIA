@@ -660,7 +660,9 @@ export default function InspectionCapturePage({ params }: InspectionCapturePageP
         const data = await response.json()
 
         toast.success(
-          `Vídeo processado! ${data.framesAnalyzed} frames analisados, ${data.totalProblems} problema(s) detectado(s)`,
+          `Vídeo processado! ${data.framesProcessed} frames analisados e salvos como fotos.${
+            data.totalProblems > 0 ? ` ${data.totalProblems} problema(s) detectado(s).` : ''
+          }`,
           { duration: 6000 }
         )
 

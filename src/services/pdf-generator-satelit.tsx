@@ -254,12 +254,9 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
 
-  // Footer
+  // Footer - NOT absolute positioned to avoid overlapping
   footer: {
-    position: 'absolute',
-    bottom: 30,
-    left: 40,
-    right: 40,
+    marginTop: 'auto',
     textAlign: 'center',
     fontSize: 8,
     color: '#64748B',
@@ -267,6 +264,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#E2E8F0',
     borderTopStyle: 'solid',
     paddingTop: 10,
+    paddingBottom: 5,
   },
 })
 
@@ -406,22 +404,6 @@ export async function generateSatelitPDF(options: GenerateSatelitPDFOptions): Pr
           </View>
         </View>
 
-        {/* Signatures */}
-        <View style={styles.signaturesBox}>
-          <Text style={styles.signaturesTitle}>ASSINATURAS</Text>
-          <Text style={styles.signaturesText}>
-            O presente termo passa a fazer parte integrante do contrato de locação firmado entre o locador e locatário, que as partes reciprocamente reconhecem.
-          </Text>
-
-          <View style={{ marginTop: 20 }}>
-            <Text style={{ fontSize: 10, marginBottom: 30 }}>LOCADOR (A): _______________________________</Text>
-            <Text style={{ fontSize: 10, marginBottom: 30 }}>LOCATÁRIO (A): _______________________________</Text>
-            <Text style={{ fontSize: 10, marginBottom: 30 }}>FIADOR (A): _______________________________</Text>
-            <Text style={{ fontSize: 10, marginBottom: 30 }}>TESTEMUNHA: _______________________________</Text>
-            <Text style={{ fontSize: 10 }}>TESTEMUNHA: _______________________________</Text>
-          </View>
-        </View>
-
         <View style={styles.footer}>
           <Text>VISTORIA PRO</Text>
           <Text>contato@vistoriapro.com.br</Text>
@@ -481,7 +463,8 @@ export async function generateSatelitPDF(options: GenerateSatelitPDFOptions): Pr
 
       {/* PAGES 3+: ROOM DETAILS */}
       {roomsWithBase64Photos.map((room) => {
-        const PHOTOS_PER_PAGE = 6
+        // Use 4 photos per page to leave room for analysis text
+        const PHOTOS_PER_PAGE = 4
         const photoChunks = []
 
         // Split photos into chunks of 6
@@ -493,6 +476,18 @@ export async function generateSatelitPDF(options: GenerateSatelitPDFOptions): Pr
         if (photoChunks.length === 0) {
           photoChunks.push([])
         }
+
+        // Consolidate AI analysis for the room (only show once, not per photo)
+        const roomAnalysisSummary = room.photos
+          .filter((p) => p.ai_summary)
+          .map((p) => p.ai_summary)
+          .slice(0, 2) // Max 2 summaries
+          .join(' | ')
+
+        const allProblems = room.photos
+          .filter((p) => p.ai_has_problems && p.problems?.length > 0)
+          .flatMap((p) => p.problems)
+          .slice(0, 5) // Max 5 problems per room
 
         return photoChunks.map((photoChunk, chunkIndex) => (
           <Page key={`${room.id}-${chunkIndex}`} size="A4" style={styles.roomPage}>
@@ -515,49 +510,43 @@ export async function generateSatelitPDF(options: GenerateSatelitPDFOptions): Pr
             {/* Show details only on first page of room */}
             {chunkIndex === 0 && (
               <>
-                {/* AI Summary */}
-                {room.photos.some((p) => p.ai_summary) && (
+                {/* Consolidated AI Summary for Room */}
+                {roomAnalysisSummary && (
                   <View style={styles.detailsBox}>
-                    {room.photos
-                      .filter((p) => p.ai_summary)
-                      .map((photo) => (
-                        <View key={photo.id} style={styles.detailRow}>
-                          <Text style={styles.detailText}>
-                            <Text style={styles.detailLabel}>ANÁLISE IA:</Text> {photo.ai_summary}
-                          </Text>
-                        </View>
-                      ))}
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailText}>
+                        <Text style={styles.detailLabel}>ANÁLISE DO CÔMODO: </Text>
+                        {roomAnalysisSummary.length > 300 
+                          ? roomAnalysisSummary.substring(0, 300) + '...'
+                          : roomAnalysisSummary
+                        }
+                      </Text>
+                    </View>
                   </View>
                 )}
 
-                {/* Detailed Problems List */}
-                {room.photos.some((p) => p.ai_has_problems && p.problems?.length > 0) && (
+                {/* Consolidated Problems List */}
+                {allProblems.length > 0 && (
                   <View style={styles.detailsBox}>
-                    <Text style={styles.sectionSubtitle}>PROBLEMAS DETECTADOS:</Text>
-                    {room.photos
-                      .filter((p) => p.ai_has_problems && p.problems)
-                      .flatMap((p) => p.problems)
-                      .map((problem, idx) => (
-                        <View key={idx} style={styles.detailRow}>
-                          <Text style={styles.detailText}>
-                            • {problem.description}
-                            {problem.location && ` (${problem.location})`}
-                          </Text>
-                          {problem.suggested_action && (
-                            <Text style={[styles.detailText, { marginLeft: 10, fontSize: 8 }]}>
-                              Ação: {problem.suggested_action}
-                            </Text>
-                          )}
-                        </View>
-                      ))}
+                    <Text style={styles.sectionSubtitle}>PROBLEMAS DETECTADOS ({allProblems.length}):</Text>
+                    {allProblems.map((problem, idx) => (
+                      <View key={idx} style={styles.detailRow}>
+                        <Text style={styles.detailText}>
+                          • {problem.description.length > 100 
+                              ? problem.description.substring(0, 100) + '...' 
+                              : problem.description
+                            }
+                        </Text>
+                      </View>
+                    ))}
                   </View>
                 )}
 
                 {/* Basic observation for rooms without AI analysis */}
-                {!room.photos.some((p) => p.ai_summary || p.ai_has_problems) && (
+                {!roomAnalysisSummary && allProblems.length === 0 && (
                   <View style={styles.detailsBox}>
                     <Text style={styles.detailText}>
-                      Aguardando análise detalhada ou observações adicionais.
+                      Ambiente vistoriado. Sem problemas detectados pela análise automática.
                     </Text>
                   </View>
                 )}
@@ -592,6 +581,81 @@ export async function generateSatelitPDF(options: GenerateSatelitPDFOptions): Pr
           </Page>
         ))
       })}
+
+      {/* FINAL PAGE: ASSINATURAS */}
+      <Page size="A4" style={styles.infoPage}>
+        <View style={styles.header}>
+          <Text style={styles.logo}>VISTORIA PRO</Text>
+          <Text style={styles.reportNumber}>{reportNumber}</Text>
+          <Text style={styles.reportTitle}>Assinaturas</Text>
+        </View>
+
+        <View style={styles.informativoBox}>
+          <Text style={styles.informativoText}>
+            O presente termo passa a fazer parte integrante do contrato de locação firmado entre o locador e locatário, que as partes reciprocamente reconhecem.
+          </Text>
+          <Text style={styles.informativoText}>
+            As assinaturas abaixo atestam a concordância com as condições do imóvel na data da vistoria conforme documentado neste laudo.
+          </Text>
+        </View>
+
+        <View style={{ marginTop: 40 }}>
+          <View style={{ marginBottom: 50 }}>
+            <Text style={{ fontSize: 10, fontWeight: 'bold', marginBottom: 5 }}>LOCADOR(A):</Text>
+            <View style={{ borderBottom: '1pt solid #000', paddingBottom: 20, marginTop: 30 }} />
+            <Text style={{ fontSize: 9, color: '#666', marginTop: 5 }}>
+              Nome: _________________________________ Data: ___/___/______
+            </Text>
+          </View>
+
+          <View style={{ marginBottom: 50 }}>
+            <Text style={{ fontSize: 10, fontWeight: 'bold', marginBottom: 5 }}>LOCATÁRIO(A):</Text>
+            <View style={{ borderBottom: '1pt solid #000', paddingBottom: 20, marginTop: 30 }} />
+            <Text style={{ fontSize: 9, color: '#666', marginTop: 5 }}>
+              Nome: _________________________________ Data: ___/___/______
+            </Text>
+          </View>
+
+          <View style={{ marginBottom: 50 }}>
+            <Text style={{ fontSize: 10, fontWeight: 'bold', marginBottom: 5 }}>FIADOR(A) (se aplicável):</Text>
+            <View style={{ borderBottom: '1pt solid #000', paddingBottom: 20, marginTop: 30 }} />
+            <Text style={{ fontSize: 9, color: '#666', marginTop: 5 }}>
+              Nome: _________________________________ Data: ___/___/______
+            </Text>
+          </View>
+
+          <View style={{ marginBottom: 30 }}>
+            <Text style={{ fontSize: 10, fontWeight: 'bold', marginBottom: 5 }}>TESTEMUNHA 1:</Text>
+            <View style={{ borderBottom: '1pt solid #000', paddingBottom: 20, marginTop: 30 }} />
+            <Text style={{ fontSize: 9, color: '#666', marginTop: 5 }}>
+              Nome: _________________________________ CPF: _______________________
+            </Text>
+          </View>
+
+          <View>
+            <Text style={{ fontSize: 10, fontWeight: 'bold', marginBottom: 5 }}>TESTEMUNHA 2:</Text>
+            <View style={{ borderBottom: '1pt solid #000', paddingBottom: 20, marginTop: 30 }} />
+            <Text style={{ fontSize: 9, color: '#666', marginTop: 5 }}>
+              Nome: _________________________________ CPF: _______________________
+            </Text>
+          </View>
+        </View>
+
+        <View style={{ marginTop: 'auto', paddingTop: 20, borderTop: '1pt solid #e2e8f0' }}>
+          <Text style={{ fontSize: 8, textAlign: 'center', color: '#64748b' }}>
+            Documento gerado em {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+            {' '}às {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+          </Text>
+          <Text style={{ fontSize: 8, textAlign: 'center', color: '#64748b', marginTop: 5 }}>
+            VISTORIA PRO - Laudo de Vistoria Profissional
+          </Text>
+        </View>
+
+        <View style={styles.footer}>
+          <Text>VISTORIA PRO</Text>
+          <Text>contato@vistoriapro.com.br</Text>
+        </View>
+      </Page>
     </Document>
   )
 

@@ -21,6 +21,11 @@ const updateSettingsSchema = z.object({
   brand_secondary_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().nullable(),
   pdf_footer_text: z.string().max(500).optional().nullable(),
   show_powered_by: z.boolean().optional(),
+  creci: z.union([
+    z.string().max(50).regex(/^CRECI-[A-Z]{2}\s\d{4,6}-[FJS]$/i, 'Formato inválido. Use: CRECI-UF XXXXX-F/J/S'),
+    z.literal(''),
+    z.null()
+  ]).optional(),
   // Regional settings
   default_region: z.string().max(50).optional().nullable(),
 })

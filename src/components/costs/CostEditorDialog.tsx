@@ -34,8 +34,11 @@ import { toast } from 'sonner'
 interface RepairService {
   id: string
   name: string
-  description: string
-  category: string
+  description: string | null
+  category: {
+    id: string
+    name: string
+  } | null
   unit: string
   base_price_min: number
   base_price_max: number
@@ -154,8 +157,8 @@ export function CostEditorDialog({
           const matchingServices = services.filter(
             (s) =>
               s.name.toLowerCase().includes(keyword) ||
-              s.description.toLowerCase().includes(keyword) ||
-              s.category.toLowerCase().includes(keyword)
+              s.description?.toLowerCase().includes(keyword) ||
+              s.category?.name?.toLowerCase().includes(keyword)
           )
           suggestions.push(...matchingServices)
         }
@@ -174,8 +177,8 @@ export function CostEditorDialog({
     return services.filter(
       (s) =>
         s.name.toLowerCase().includes(query) ||
-        s.description.toLowerCase().includes(query) ||
-        s.category.toLowerCase().includes(query)
+        s.description?.toLowerCase().includes(query) ||
+        s.category?.name?.toLowerCase().includes(query)
     )
   }, [services, searchQuery])
 
@@ -348,15 +351,15 @@ export function CostEditorDialog({
           <div className="space-y-2">
             <Label>Serviço Selecionado</Label>
             <Select
-              value={selectedServiceId}
-              onValueChange={setSelectedServiceId}
+              value={selectedServiceId || '__auto__'}
+              onValueChange={(value) => setSelectedServiceId(value === '__auto__' ? '' : value)}
               disabled={loadingServices}
             >
               <SelectTrigger>
                 <SelectValue placeholder={loadingServices ? 'Carregando...' : 'Selecione um serviço'} />
               </SelectTrigger>
               <SelectContent className="max-h-60">
-                <SelectItem value="">Usar estimativa automática</SelectItem>
+                <SelectItem value="__auto__">Usar estimativa automática</SelectItem>
                 {filteredServices.map((service) => (
                   <SelectItem key={service.id} value={service.id}>
                     <div className="flex flex-col">

@@ -66,6 +66,7 @@ export interface TechnicalReportData {
       }
       geolocalizacao_interna: string
       recomendacao_tecnica: string
+      custo_estimado: number
     }>
   }>
   comparacao_anterior?: {
@@ -156,6 +157,14 @@ Sempre descreva:
 - sua severidade (leve, moderado, grave ou crítico)
 - impacto potencial (estético, segurança, estrutural, funcional)
 - recomendação técnica de manutenção ou reparo
+- **CUSTO ESTIMADO DE REPARO em Reais (R$):**
+  - Considere a severidade, tamanho aproximado da área, tipo de material e mão de obra
+  - Forneça uma estimativa realista baseada no mercado brasileiro
+  - Para problemas leves: R$ 20-100
+  - Para problemas moderados: R$ 100-500
+  - Para problemas graves: R$ 500-2000
+  - Para problemas críticos: R$ 2000+
+  - Se não for possível estimar (problema muito vago), use 0
 
 3. Anotações visuais
 Para cada dano encontrado:
@@ -254,7 +263,8 @@ Retorne APENAS um JSON válido com esta estrutura:
         "instrucao": string
       },
       "geolocalizacao_interna": string,
-      "recomendacao_tecnica": string
+      "recomendacao_tecnica": string,
+      "custo_estimado": number
     }]
   }],
   ${

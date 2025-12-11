@@ -55,6 +55,7 @@ export interface UserSettings {
   brand_secondary_color?: string | null
   pdf_footer_text?: string | null
   show_powered_by?: boolean
+  creci?: string | null
   // Regional settings
   default_region?: string | null
   created_at: string

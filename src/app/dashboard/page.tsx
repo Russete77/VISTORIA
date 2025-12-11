@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { InspectionBadge } from '@/components/vistoria'
+import { TrainingMilestoneBadge } from '@/components/ai-training/TrainingMilestoneBadge'
 import { useProperties } from '@/hooks/use-properties'
 import { useInspections } from '@/hooks/use-inspections'
 import { useComparisons } from '@/hooks/use-comparisons'
@@ -157,6 +158,11 @@ export default function DashboardPage() {
             </Card>
           )
         })}
+      </div>
+
+      {/* AI Training Milestone Badge */}
+      <div className="px-4 sm:px-0">
+        <TrainingMilestoneBadge />
       </div>
 
       {/* Recent Inspections */}

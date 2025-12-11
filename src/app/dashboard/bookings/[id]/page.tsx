@@ -100,7 +100,7 @@ export default function BookingDetailsPage({ params }: PageProps) {
       {/* Breadcrumbs */}
       <Breadcrumbs
         items={[
-          { label: 'Reservas', href: '/dashboard/bookings', icon: <Calendar className="h-3.5 w-3.5" /> },
+          { label: 'Agenda', href: '/dashboard/bookings', icon: <Calendar className="h-3.5 w-3.5" /> },
           { label: `Reserva #${booking.id.slice(0, 8)}` },
         ]}
       />

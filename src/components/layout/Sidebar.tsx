@@ -22,19 +22,9 @@ const navigation = [
     icon: LayoutDashboard,
   },
   {
-    name: 'Imóveis',
-    href: '/properties',
-    icon: Building2,
-  },
-  {
-    name: 'Reservas',
+    name: 'Agenda',
     href: '/bookings',
     icon: Calendar,
-  },
-  {
-    name: 'Vistorias',
-    href: '/inspections',
-    icon: ClipboardList,
   },
   {
     name: 'Comparações',
@@ -42,9 +32,9 @@ const navigation = [
     icon: GitCompare,
   },
   {
-    name: 'Laudos',
-    href: '/reports',
-    icon: FileText,
+    name: 'Configurações',
+    href: '/settings',
+    icon: Settings,
   },
   {
     name: 'Créditos',
@@ -52,9 +42,19 @@ const navigation = [
     icon: CreditCard,
   },
   {
-    name: 'Configurações',
-    href: '/settings',
-    icon: Settings,
+    name: 'Imóveis',
+    href: '/properties',
+    icon: Building2,
+  },
+  {
+    name: 'Laudos',
+    href: '/reports',
+    icon: FileText,
+  },
+  {
+    name: 'Vistorias',
+    href: '/inspections',
+    icon: ClipboardList,
   },
 ]
 

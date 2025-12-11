@@ -134,6 +134,28 @@ export async function generatePDFWithTemplate(options: GeneratePDFWithTemplateOp
 
   const PHOTOS_PER_PAGE = getPhotosPerPage(sections.photoLayout)
 
+  // Helper para formatar valores em BRL
+  const formatCurrency = (value: number | null | undefined): string => {
+    if (value === null || value === undefined || value === 0) return 'R$ 0,00'
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value)
+  }
+
+  // Calcular custo total dos danos
+  const calcularCustoTotal = (): number => {
+    if (!technicalReport?.comodos) return 0
+    return technicalReport.comodos.reduce((total, comodo) => {
+      const custoComodo = comodo.danos?.reduce((sum, dano) => sum + (dano.custo_estimado || 0), 0) || 0
+      return total + custoComodo
+    }, 0)
+  }
+
+  const custoTotalEstimado = calcularCustoTotal()
+
   // Header component based on style
   const HeaderComponent = ({ showTitle = false }: { showTitle?: boolean }) => {
     if (header.style === 'none') return null
@@ -221,24 +243,6 @@ export async function generatePDFWithTemplate(options: GeneratePDFWithTemplateOp
               </Text>
             </View>
           </View>
-
-          {/* Signatures */}
-          {sections.showSignatures && (
-            <View style={styles.signaturesBox}>
-              <Text style={styles.signaturesTitle}>ASSINATURAS</Text>
-              <Text style={styles.signaturesText}>
-                O presente termo passa a fazer parte integrante do contrato de locação firmado entre o locador e locatário, que as partes reciprocamente reconhecem.
-              </Text>
-
-              <View style={{ marginTop: 20 }}>
-                <Text style={{ fontSize: 10, marginBottom: 30 }}>LOCADOR (A): _______________________________</Text>
-                <Text style={{ fontSize: 10, marginBottom: 30 }}>LOCATÁRIO (A): _______________________________</Text>
-                <Text style={{ fontSize: 10, marginBottom: 30 }}>FIADOR (A): _______________________________</Text>
-                <Text style={{ fontSize: 10, marginBottom: 30 }}>TESTEMUNHA: _______________________________</Text>
-                <Text style={{ fontSize: 10 }}>TESTEMUNHA: _______________________________</Text>
-              </View>
-            </View>
-          )}
 
           <FooterComponent />
         </Page>
@@ -469,6 +473,72 @@ export async function generatePDFWithTemplate(options: GeneratePDFWithTemplateOp
 
             <FooterComponent />
           </Page>
+
+          {/* PAGE: RESUMO DE CUSTOS */}
+          {custoTotalEstimado > 0 && (
+            <Page size="A4" style={styles.infoPage}>
+              <HeaderComponent />
+              <Text style={styles.reportTitle}>Estimativa de Custos de Reparo</Text>
+
+              {/* Total em destaque */}
+              <View style={styles.costSummaryBox}>
+                <Text style={styles.costSummaryTitle}>CUSTO TOTAL ESTIMADO</Text>
+                <Text style={styles.costSummaryTotal}>{formatCurrency(custoTotalEstimado)}</Text>
+                <Text style={styles.costDisclaimer}>
+                  * Valores estimados baseados em análise visual. Consulte um profissional para orçamento exato.
+                </Text>
+              </View>
+
+              {/* Detalhamento por cômodo */}
+              <Text style={[styles.sectionSubtitle, { marginBottom: 10 }]}>Detalhamento por Cômodo:</Text>
+
+              {technicalReport.comodos
+                .filter((comodo) => comodo.danos && comodo.danos.length > 0)
+                .map((comodo, idx) => {
+                  const custoComodo = comodo.danos.reduce((sum, dano) => sum + (dano.custo_estimado || 0), 0)
+                  if (custoComodo === 0) return null
+
+                  return (
+                    <View key={idx} style={{ marginBottom: 15 }}>
+                      <Text style={[styles.detailLabel, { fontSize: 11, marginBottom: 5 }]}>
+                        {comodo.nome.toUpperCase()}
+                      </Text>
+                      <View style={styles.detailsBox}>
+                        {comodo.danos
+                          .filter((dano) => dano.custo_estimado && dano.custo_estimado > 0)
+                          .map((dano, danoIdx) => (
+                            <View key={danoIdx} style={styles.detailRow}>
+                              <Text style={[styles.detailText, { flex: 1 }]}>
+                                • {dano.descricao}
+                                <Text style={{ fontSize: 8, color: '#666' }}> ({dano.severidade})</Text>
+                              </Text>
+                              <Text style={styles.problemCost}>{formatCurrency(dano.custo_estimado)}</Text>
+                            </View>
+                          ))}
+                        <Text style={styles.roomSubtotal}>
+                          Subtotal: {formatCurrency(custoComodo)}
+                        </Text>
+                      </View>
+                    </View>
+                  )
+                })}
+
+              <View style={styles.informativoBox}>
+                <Text style={[styles.informativoText, { fontSize: 9 }]}>
+                  <Text style={{ fontWeight: 'bold' }}>Importante:</Text> Os custos apresentados são estimativas
+                  baseadas na análise visual das imagens fornecidas e na severidade dos problemas detectados.
+                  Para um orçamento preciso, recomendamos consultar profissionais especializados em cada área.
+                </Text>
+                <Text style={[styles.informativoText, { fontSize: 9, marginTop: 8 }]}>
+                  <Text style={{ fontWeight: 'bold' }}>O que está incluído:</Text> As estimativas consideram
+                  materiais básicos e mão de obra padrão do mercado brasileiro (2025). Problemas estruturais
+                  ou que requeiram inspeção mais detalhada podem ter custos superiores.
+                </Text>
+              </View>
+
+              <FooterComponent />
+            </Page>
+          )}
         </>
       )}
 
@@ -587,6 +657,77 @@ export async function generatePDFWithTemplate(options: GeneratePDFWithTemplateOp
           </Page>
         ))
       })}
+
+      {/* FINAL PAGE: ASSINATURAS */}
+      {sections.showSignatures && (
+        <Page size="A4" style={styles.infoPage}>
+          <HeaderComponent />
+          <Text style={styles.reportTitle}>Assinaturas</Text>
+
+          <View style={styles.informativoBox}>
+            <Text style={styles.informativoText}>
+              O presente termo passa a fazer parte integrante do contrato de locação firmado entre o locador e locatário, que as partes reciprocamente reconhecem.
+            </Text>
+            <Text style={styles.informativoText}>
+              As assinaturas abaixo atestam a concordância com as condições do imóvel na data da vistoria conforme documentado neste laudo.
+            </Text>
+          </View>
+
+          <View style={{ marginTop: 40 }}>
+            <View style={{ marginBottom: 50 }}>
+              <Text style={{ fontSize: 10, fontWeight: 'bold', marginBottom: 5 }}>LOCADOR(A):</Text>
+              <View style={{ borderBottom: '1pt solid #000', paddingBottom: 20, marginTop: 30 }} />
+              <Text style={{ fontSize: 9, color: '#666', marginTop: 5 }}>
+                Nome: _________________________________ Data: ___/___/______
+              </Text>
+            </View>
+
+            <View style={{ marginBottom: 50 }}>
+              <Text style={{ fontSize: 10, fontWeight: 'bold', marginBottom: 5 }}>LOCATÁRIO(A):</Text>
+              <View style={{ borderBottom: '1pt solid #000', paddingBottom: 20, marginTop: 30 }} />
+              <Text style={{ fontSize: 9, color: '#666', marginTop: 5 }}>
+                Nome: _________________________________ Data: ___/___/______
+              </Text>
+            </View>
+
+            <View style={{ marginBottom: 50 }}>
+              <Text style={{ fontSize: 10, fontWeight: 'bold', marginBottom: 5 }}>FIADOR(A) (se aplicável):</Text>
+              <View style={{ borderBottom: '1pt solid #000', paddingBottom: 20, marginTop: 30 }} />
+              <Text style={{ fontSize: 9, color: '#666', marginTop: 5 }}>
+                Nome: _________________________________ Data: ___/___/______
+              </Text>
+            </View>
+
+            <View style={{ marginBottom: 30 }}>
+              <Text style={{ fontSize: 10, fontWeight: 'bold', marginBottom: 5 }}>TESTEMUNHA 1:</Text>
+              <View style={{ borderBottom: '1pt solid #000', paddingBottom: 20, marginTop: 30 }} />
+              <Text style={{ fontSize: 9, color: '#666', marginTop: 5 }}>
+                Nome: _________________________________ CPF: _______________________
+              </Text>
+            </View>
+
+            <View>
+              <Text style={{ fontSize: 10, fontWeight: 'bold', marginBottom: 5 }}>TESTEMUNHA 2:</Text>
+              <View style={{ borderBottom: '1pt solid #000', paddingBottom: 20, marginTop: 30 }} />
+              <Text style={{ fontSize: 9, color: '#666', marginTop: 5 }}>
+                Nome: _________________________________ CPF: _______________________
+              </Text>
+            </View>
+          </View>
+
+          <View style={{ marginTop: 'auto', paddingTop: 20, borderTop: '1pt solid #e2e8f0' }}>
+            <Text style={{ fontSize: 8, textAlign: 'center', color: '#64748b' }}>
+              Documento gerado em {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+              {' '}às {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+            </Text>
+            <Text style={{ fontSize: 8, textAlign: 'center', color: '#64748b', marginTop: 5 }}>
+              {companyName} - Laudo de Vistoria Profissional
+            </Text>
+          </View>
+
+          <FooterComponent />
+        </Page>
+      )}
     </Document>
   )
 

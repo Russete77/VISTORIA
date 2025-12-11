@@ -124,6 +124,34 @@ export async function POST(request: NextRequest) {
       isAccurate: body.isAccurate,
     })
 
+    // Update corresponding training data with user correction
+    if (body.photoId) {
+      try {
+        const { error: trainingUpdateError } = await supabase
+          .from('ai_training_data')
+          .update({
+            user_correction: body.userCorrection || null,
+            feedback_rating: body.rating,
+            feedback_comment: body.userComment || null,
+            is_correct: body.isAccurate ?? null,
+            corrected_at: new Date().toISOString(),
+          })
+          .eq('photo_id', body.photoId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+
+        if (trainingUpdateError) {
+          console.warn('[AI Training] Failed to update training data:', trainingUpdateError)
+          // Don't fail the request - feedback was saved successfully
+        } else {
+          console.log('[AI Training] Training data updated with user feedback')
+        }
+      } catch (trainingError) {
+        console.warn('[AI Training] Error updating training data:', trainingError)
+        // Continue - feedback submission was successful
+      }
+    }
+
     return NextResponse.json({
       success: true,
       feedbackId: feedback.id,

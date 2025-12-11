@@ -13,7 +13,7 @@ export default function NewBookingPage() {
       {/* Breadcrumbs */}
       <Breadcrumbs
         items={[
-          { label: 'Reservas', href: '/dashboard/bookings', icon: <Calendar className="h-3.5 w-3.5" /> },
+          { label: 'Agenda', href: '/dashboard/bookings', icon: <Calendar className="h-3.5 w-3.5" /> },
           { label: 'Nova Reserva' },
         ]}
       />

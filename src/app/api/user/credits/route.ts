@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 
 /**
  * GET /api/user/credits
- * Get current user's credit balance
+ * Get current user's credit balance and beta mode status
  */
 export async function GET(request: NextRequest) {
   try {
@@ -25,8 +25,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
+    // Check if we're in beta mode (< 3,000 total inspections across all users)
+    const { count: totalInspections } = await supabase
+      .from('inspections')
+      .select('*', { count: 'exact', head: true })
+
+    const isBetaPhase = (totalInspections || 0) < 3000
+
     return NextResponse.json({
       credits: user.credits || 0,
+      isBetaPhase,
+      displayCredits: isBetaPhase ? '∞ Ilimitado' : String(user.credits || 0),
     })
   } catch (error) {
     console.error('Get credits error:', error)

@@ -1,5 +1,6 @@
 import { DashboardSidebar } from '@/components/layout/DashboardSidebar'
 import { MobileBottomNav } from '@/components/layout/MobileBottomNav'
+import { BetaBanner } from '@/components/ai-training/BetaBanner'
 
 export default function DashboardLayout({
   children,
@@ -13,6 +14,9 @@ export default function DashboardLayout({
 
       {/* Conteúdo principal */}
       <main className="flex-1 w-full">
+        {/* Beta Banner */}
+        <BetaBanner />
+        
         <div className="mx-auto max-w-7xl p-4 md:p-6 lg:p-8 pb-24 lg:pb-8">
           {children}
         </div>

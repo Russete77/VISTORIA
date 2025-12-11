@@ -263,15 +263,18 @@ export default function InspectionDetailsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-6">
-                {/* Data Agendada */}
+                {/* Data e Hora Agendada */}
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Calendar className="h-4 w-4" />
-                    <span>Data Agendada</span>
+                    <span>Data e Hora Agendada</span>
                   </div>
                   <p className="font-medium">
                     {inspection.scheduled_date
-                      ? new Date(inspection.scheduled_date).toLocaleDateString('pt-BR')
+                      ? new Date(inspection.scheduled_date).toLocaleString('pt-BR', {
+                          dateStyle: 'long',
+                          timeStyle: 'short',
+                        })
                       : 'Não agendada'}
                   </p>
                 </div>

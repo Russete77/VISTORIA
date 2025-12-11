@@ -61,6 +61,7 @@ export default function SettingsPage() {
   const [brandPrimaryColor, setBrandPrimaryColor] = useState('#1a56db')
   const [brandSecondaryColor, setBrandSecondaryColor] = useState('#f3f4f6')
   const [pdfFooterText, setPdfFooterText] = useState('')
+  const [creci, setCreci] = useState('')
   const [showPoweredBy, setShowPoweredBy] = useState(true)
   const [isSavingBranding, setIsSavingBranding] = useState(false)
   const [isUploadingLogo, setIsUploadingLogo] = useState(false)
@@ -97,6 +98,7 @@ export default function SettingsPage() {
       setBrandPrimaryColor(userSettings.brand_primary_color || '#1a56db')
       setBrandSecondaryColor(userSettings.brand_secondary_color || '#f3f4f6')
       setPdfFooterText(userSettings.pdf_footer_text || '')
+      setCreci(userSettings.creci || '')
       setShowPoweredBy(userSettings.show_powered_by ?? true)
       setDefaultRegion(userSettings.default_region || 'sp_capital')
     }
@@ -240,6 +242,7 @@ export default function SettingsPage() {
         brand_primary_color: brandPrimaryColor,
         brand_secondary_color: brandSecondaryColor,
         pdf_footer_text: pdfFooterText || null,
+        creci: creci || null,
         show_powered_by: showPoweredBy,
       })
 
@@ -563,12 +566,28 @@ export default function SettingsPage() {
                   id="pdfFooterText"
                   value={pdfFooterText}
                   onChange={(e) => setPdfFooterText(e.target.value)}
-                  placeholder="Documento gerado por Sua Imobiliária - CRECI: 12345"
+                  placeholder="Documento gerado por Sua Imobiliária"
                   disabled={isSavingBranding}
                   maxLength={500}
                 />
                 <p className="text-xs text-neutral-500">
                   Aparece no rodapé de todas as páginas do laudo
+                </p>
+              </div>
+
+              {/* CRECI Field */}
+              <div className="space-y-2">
+                <Label htmlFor="creci">CRECI (Opcional)</Label>
+                <Input
+                  id="creci"
+                  value={creci}
+                  onChange={(e) => setCreci(e.target.value.toUpperCase())}
+                  placeholder="CRECI-RJ 12345-F"
+                  disabled={isSavingBranding}
+                  maxLength={50}
+                />
+                <p className="text-xs text-neutral-500">
+                  Formato: CRECI-UF XXXXX-F/J/S (ex: CRECI-RJ 12345-F, CRECI-SP 98765-J)
                 </p>
               </div>
             </CardContent>

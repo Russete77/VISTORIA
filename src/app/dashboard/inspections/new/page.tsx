@@ -75,7 +75,7 @@ function NewInspectionForm() {
     tenantEmail: '',
     landlordName: '',
     landlordEmail: '',
-    scheduledDate: new Date().toISOString().split('T')[0],
+    scheduledDate: new Date().toISOString().slice(0, 16),
     notes: '',
   })
 
@@ -470,15 +470,18 @@ function NewInspectionForm() {
                 </h3>
 
                 <div className="space-y-2">
-                  <Label htmlFor="scheduledDate">Data Agendada *</Label>
+                  <Label htmlFor="scheduledDate">Data e Hora Agendada *</Label>
                   <Input
                     id="scheduledDate"
-                    type="date"
+                    type="datetime-local"
                     value={formData.scheduledDate}
                     onChange={(e) =>
                       updateFormData('scheduledDate', e.target.value)
                     }
                   />
+                  <p className="text-xs text-neutral-500">
+                    Defina a data e horário para a realização da vistoria
+                  </p>
                 </div>
 
                 <div className="space-y-2">

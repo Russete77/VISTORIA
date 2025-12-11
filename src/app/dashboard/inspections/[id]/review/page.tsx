@@ -553,303 +553,271 @@ export default function InspectionReviewPage({ params }: InspectionReviewPagePro
             <CardTitle className="text-2xl">{room.name.toUpperCase()}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Photos Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {room.photos.map((photo: any) => {
-                const isDeleting = deletingPhotoId === photo.id
-                return (
-                  <div key={photo.id} className="space-y-2">
-                    <div className="relative group">
-                      {/* Delete Button - Aparece no hover */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleDeletePhoto(photo.id)
-                        }}
-                        disabled={isDeleting}
-                        className="absolute top-2 right-2 z-20 flex items-center gap-1 px-2 py-1 bg-danger-600/90 backdrop-blur-sm text-white text-xs font-medium rounded-md shadow-md opacity-0 group-hover:opacity-100 hover:bg-danger-700 disabled:opacity-50 transition-all"
-                        aria-label="Excluir foto"
-                      >
-                        {isDeleting ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <>
-                            <Trash2 className="h-3 w-3" />
-                            <span className="hidden sm:inline">Excluir</span>
-                          </>
-                        )}
-                      </button>
-
-                      <div
-                        className="relative aspect-video rounded-lg overflow-hidden bg-neutral-100 shadow-sm cursor-pointer hover:ring-2 hover:ring-primary-500 transition-all"
-                        onClick={() => setLightboxPhoto({ url: photo.photo_url, alt: `${room.name} - Foto ${room.photos.indexOf(photo) + 1}` })}
-                      >
-                        <img
-                          src={photo.photo_url}
-                          alt={`Foto ${room.name}`}
-                          className="object-cover w-full h-full"
-                          loading="lazy"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Badge de problemas - Abaixo da imagem */}
-                    {photo.ai_has_problems && (
-                      <Badge className="bg-danger-600 text-xs w-fit">
-                        <Sparkles className="mr-1 h-3 w-3" />
-                        {photo.problems?.length || 0} {(photo.problems?.length || 0) === 1 ? 'problema' : 'problemas'}
-                      </Badge>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-
-            {/* AI Summary & Problems - Per Photo */}
-            {room.photos.map((photo: any) => {
+            {/* Each Photo with its Analysis - Integrated Cards */}
+            {room.photos.map((photo: any, photoIndex: number) => {
               const isEditing = editingPhotoId === photo.id
+              const isDeleting = deletingPhotoId === photo.id
               const hasContent = photo.ai_summary || photo.ai_has_problems
 
-              if (!hasContent && !isEditing) return null
-
               return (
-                <div key={photo.id} className="border-t pt-4 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-lg flex items-center gap-2">
-                      <Sparkles className="h-5 w-5 text-primary-600" />
-                      Análise IA - Foto {room.photos.indexOf(photo) + 1}
+                <div key={photo.id} className="border border-neutral-200 rounded-lg p-4 space-y-4 bg-neutral-50/30">
+                  {/* Photo Number Header */}
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-semibold text-lg text-neutral-900">
+                      Foto {photoIndex + 1}
                     </h3>
-                    {!isEditing ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleStartEdit(photo)}
-                      >
-                        <Pencil className="h-4 w-4 mr-1" />
-                        Editar
-                      </Button>
-                    ) : (
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleCancelEdit}
-                          disabled={isSavingEdit}
-                        >
-                          <X className="h-4 w-4 mr-1" />
-                          Cancelar
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => handleSaveEdit(photo.id)}
-                          disabled={isSavingEdit}
-                        >
-                          {isSavingEdit ? (
-                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                          ) : (
-                            <Save className="h-4 w-4 mr-1" />
-                          )}
-                          Salvar
-                        </Button>
-                      </div>
-                    )}
+                    <button
+                      onClick={() => handleDeletePhoto(photo.id)}
+                      disabled={isDeleting}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-danger-600 text-white text-xs font-medium rounded-md hover:bg-danger-700 disabled:opacity-50 transition-all"
+                    >
+                      {isDeleting ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <>
+                          <Trash2 className="h-3 w-3" />
+                          <span>Excluir</span>
+                        </>
+                      )}
+                    </button>
                   </div>
 
-                  {/* AI Summary */}
-                  {isEditing ? (
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-neutral-700">Resumo da Análise</label>
-                      <textarea
-                        value={editingSummary}
-                        onChange={(e) => setEditingSummary(e.target.value)}
-                        className="w-full p-3 border border-neutral-300 rounded-lg text-sm min-h-[100px] focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                        placeholder="Descreva a condição geral do ambiente..."
-                      />
-                    </div>
-                  ) : photo.ai_summary ? (
-                    <div className="p-3 bg-primary-50 border border-primary-200 rounded-lg">
-                      <p className="text-sm text-neutral-700">{photo.ai_summary}</p>
-                    </div>
-                  ) : null}
+                  {/* Photo Image */}
+                  <div
+                    className="relative aspect-video rounded-lg overflow-hidden bg-neutral-100 shadow-md cursor-pointer hover:ring-2 hover:ring-primary-500 transition-all max-w-2xl"
+                    onClick={() => setLightboxPhoto({ url: photo.photo_url, alt: `${room.name} - Foto ${photoIndex + 1}` })}
+                  >
+                    <img
+                      src={photo.photo_url}
+                      alt={`Foto ${room.name} ${photoIndex + 1}`}
+                      className="object-cover w-full h-full"
+                      loading="lazy"
+                    />
+                  </div>
 
-                  {/* Problems */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-medium text-neutral-700">Problemas Detectados</h4>
-                      {isEditing && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleAddProblem}
-                        >
-                          <Plus className="h-4 w-4 mr-1" />
-                          Adicionar
-                        </Button>
-                      )}
-                    </div>
+                  {/* AI Analysis Section */}
+                  {(hasContent || isEditing) && (
+                    <div className="bg-white border border-neutral-200 rounded-lg p-4 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-semibold text-base flex items-center gap-2">
+                          <Sparkles className="h-5 w-5 text-primary-600" />
+                          Análise da IA
+                        </h4>
+                        {!isEditing ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleStartEdit(photo)}
+                          >
+                            <Pencil className="h-4 w-4 mr-1" />
+                            Editar
+                          </Button>
+                        ) : (
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleCancelEdit}
+                              disabled={isSavingEdit}
+                            >
+                              <X className="h-4 w-4 mr-1" />
+                              Cancelar
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => handleSaveEdit(photo.id)}
+                              disabled={isSavingEdit}
+                            >
+                              {isSavingEdit ? (
+                                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                              ) : (
+                                <Save className="h-4 w-4 mr-1" />
+                              )}
+                              Salvar
+                            </Button>
+                          </div>
+                        )}
+                      </div>
 
-                    {isEditing ? (
-                      editingProblems.length === 0 ? (
-                        <p className="text-sm text-neutral-500 italic">Nenhum problema. Clique em "Adicionar" para registrar.</p>
-                      ) : (
-                        editingProblems.map((problem) => (
-                          <div key={problem.id} className="p-3 bg-neutral-50 border border-neutral-200 rounded-lg space-y-3">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex-1 space-y-3">
-                                <div>
-                                  <label className="text-xs font-medium text-neutral-600">Descrição</label>
-                                  <input
-                                    type="text"
-                                    value={problem.description}
-                                    onChange={(e) => handleUpdateProblem(problem.id, 'description', e.target.value)}
-                                    className="w-full p-2 border border-neutral-300 rounded text-sm mt-1"
-                                    placeholder="Descreva o problema..."
-                                  />
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                  <div>
-                                    <label className="text-xs font-medium text-neutral-600">Gravidade</label>
-                                    <select
-                                      value={problem.severity}
-                                      onChange={(e) => handleUpdateProblem(problem.id, 'severity', e.target.value)}
-                                      className="w-full p-2 border border-neutral-300 rounded text-sm mt-1"
-                                    >
-                                      <option value="low">Baixa</option>
-                                      <option value="medium">Média</option>
-                                      <option value="high">Alta</option>
-                                      <option value="urgent">Urgente</option>
-                                    </select>
+                      {/* AI Summary */}
+                      {isEditing ? (
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-neutral-700">Resumo da Análise</label>
+                          <textarea
+                            value={editingSummary}
+                            onChange={(e) => setEditingSummary(e.target.value)}
+                            className="w-full p-3 border border-neutral-300 rounded-lg text-sm min-h-[100px] focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                            placeholder="Descreva a condição geral do ambiente..."
+                          />
+                        </div>
+                      ) : photo.ai_summary ? (
+                        <div className="p-3 bg-primary-50 border border-primary-200 rounded-lg">
+                          <p className="text-sm text-neutral-700">{photo.ai_summary}</p>
+                        </div>
+                      ) : null}
+
+                      {/* Problems */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h5 className="font-medium text-neutral-700 flex items-center gap-2">
+                            {photo.problems?.length > 0 && (
+                              <Badge className="bg-danger-600">
+                                {photo.problems.length} {photo.problems.length === 1 ? 'problema' : 'problemas'}
+                              </Badge>
+                            )}
+                            {photo.problems?.length === 0 && <span className="text-sm text-neutral-500">Nenhum problema detectado</span>}
+                          </h5>
+                          {isEditing && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleAddProblem}
+                            >
+                              <Plus className="h-4 w-4 mr-1" />
+                              Adicionar Problema
+                            </Button>
+                          )}
+                        </div>
+
+                        {isEditing ? (
+                          editingProblems.length === 0 ? (
+                            <p className="text-sm text-neutral-500 italic">Nenhum problema. Clique em "Adicionar" para registrar.</p>
+                          ) : (
+                            editingProblems.map((problem) => (
+                              <div key={problem.id} className="p-3 bg-neutral-50 border border-neutral-200 rounded-lg space-y-3">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex-1 space-y-3">
+                                    <div>
+                                      <label className="text-xs font-medium text-neutral-600">Descrição</label>
+                                      <input
+                                        type="text"
+                                        value={problem.description}
+                                        onChange={(e) => handleUpdateProblem(problem.id, 'description', e.target.value)}
+                                        className="w-full p-2 border border-neutral-300 rounded text-sm mt-1"
+                                        placeholder="Descreva o problema..."
+                                      />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                      <div>
+                                        <label className="text-xs font-medium text-neutral-600">Gravidade</label>
+                                        <select
+                                          value={problem.severity}
+                                          onChange={(e) => handleUpdateProblem(problem.id, 'severity', e.target.value)}
+                                          className="w-full p-2 border border-neutral-300 rounded text-sm mt-1"
+                                        >
+                                          <option value="low">Baixa</option>
+                                          <option value="medium">Média</option>
+                                          <option value="high">Alta</option>
+                                          <option value="urgent">Urgente</option>
+                                        </select>
+                                      </div>
+                                      <div>
+                                        <label className="text-xs font-medium text-neutral-600">Localização</label>
+                                        <input
+                                          type="text"
+                                          value={problem.location || ''}
+                                          onChange={(e) => handleUpdateProblem(problem.id, 'location', e.target.value)}
+                                          className="w-full p-2 border border-neutral-300 rounded text-sm mt-1"
+                                          placeholder="Ex: Parede direita"
+                                        />
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <label className="text-xs font-medium text-neutral-600">Ação Sugerida</label>
+                                      <input
+                                        type="text"
+                                        value={problem.suggested_action || ''}
+                                        onChange={(e) => handleUpdateProblem(problem.id, 'suggested_action', e.target.value)}
+                                        className="w-full p-2 border border-neutral-300 rounded text-sm mt-1"
+                                        placeholder="Ex: Repintar a parede"
+                                      />
+                                    </div>
                                   </div>
-                                  <div>
-                                    <label className="text-xs font-medium text-neutral-600">Localização</label>
-                                    <input
-                                      type="text"
-                                      value={problem.location || ''}
-                                      onChange={(e) => handleUpdateProblem(problem.id, 'location', e.target.value)}
-                                      className="w-full p-2 border border-neutral-300 rounded text-sm mt-1"
-                                      placeholder="Ex: Parede direita"
-                                    />
-                                  </div>
-                                </div>
-                                <div>
-                                  <label className="text-xs font-medium text-neutral-600">Ação Sugerida</label>
-                                  <input
-                                    type="text"
-                                    value={problem.suggested_action || ''}
-                                    onChange={(e) => handleUpdateProblem(problem.id, 'suggested_action', e.target.value)}
-                                    className="w-full p-2 border border-neutral-300 rounded text-sm mt-1"
-                                    placeholder="Ex: Repintar a parede"
-                                  />
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleRemoveProblem(problem.id)}
+                                    className="text-danger-600 hover:text-danger-700 hover:bg-danger-50"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
                                 </div>
                               </div>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleRemoveProblem(problem.id)}
-                                className="text-danger-600 hover:text-danger-700 hover:bg-danger-50"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        ))
-                      )
-                    ) : photo.problems?.length > 0 ? (
-                      photo.problems.map((problem: any, idx: number) => (
-                        <div key={idx} className="flex items-start gap-3 p-3 bg-danger-50 border border-danger-200 rounded-lg">
-                          <IssueSeverity severity={problem.severity as any} />
-                          <div className="flex-1">
-                            <div className="flex items-start justify-between gap-2">
-                              <p className="font-medium text-neutral-900">{problem.description}</p>
-                              <AIFeedbackButton
-                                feedbackType="problem_detection"
-                                inspectionId={id}
-                                photoId={photo.id}
-                                problemId={problem.id}
-                                aiContent={{
-                                  description: problem.description,
-                                  severity: problem.severity,
-                                  location: problem.location,
-                                  suggestedAction: problem.suggested_action,
-                                  confidence: problem.ai_confidence,
-                                }}
-                                compact
-                              />
-                            </div>
-                            {problem.location && (
-                              <p className="text-sm text-neutral-600 mt-1">Local: {problem.location}</p>
-                            )}
-                            {problem.suggested_action && (
-                              <p className="text-sm text-neutral-700 mt-2">
-                                <span className="font-medium">Ação sugerida:</span> {problem.suggested_action}
-                              </p>
-                            )}
-                            {/* Cost Estimate */}
-                            <div className="mt-3 pt-3 border-t border-danger-200/50">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <DollarSign className="h-4 w-4 text-emerald-600" />
-                                  {problem.manual_cost ? (
-                                    <span className="text-sm font-medium text-emerald-700">
-                                      Custo manual: {formatPrice(problem.manual_cost)}
-                                      {problem.cost_edited_at && (
-                                        <Badge variant="outline" className="ml-2 text-xs">Editado</Badge>
+                            ))
+                          )
+                        ) : photo.problems?.length > 0 ? (
+                          photo.problems.map((problem: any, idx: number) => (
+                            <div key={idx} className="flex items-start gap-3 p-3 bg-danger-50 border border-danger-200 rounded-lg">
+                              <IssueSeverity severity={problem.severity as any} />
+                              <div className="flex-1">
+                                <div className="flex items-start justify-between gap-2">
+                                  <p className="font-medium text-neutral-900">{problem.description}</p>
+                                  <AIFeedbackButton
+                                    feedbackType="problem_detection"
+                                    inspectionId={id}
+                                    photoId={photo.id}
+                                    problemId={problem.id}
+                                    aiContent={{
+                                      description: problem.description,
+                                      severity: problem.severity,
+                                      location: problem.location,
+                                      suggestedAction: problem.suggested_action,
+                                      confidence: problem.ai_confidence,
+                                    }}
+                                    compact
+                                  />
+                                </div>
+                                {problem.location && (
+                                  <p className="text-sm text-neutral-600 mt-1">Local: {problem.location}</p>
+                                )}
+                                {problem.suggested_action && (
+                                  <p className="text-sm text-neutral-700 mt-2">
+                                    <span className="font-medium">Ação sugerida:</span> {problem.suggested_action}
+                                  </p>
+                                )}
+                                {/* Cost Estimate */}
+                                <div className="mt-3 pt-3 border-t border-danger-200/50">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <DollarSign className="h-4 w-4 text-emerald-600" />
+                                      {problem.manual_cost ? (
+                                        <span className="text-sm font-medium text-emerald-700">
+                                          Custo manual: {formatPrice(problem.manual_cost)}
+                                          {problem.cost_edited_at && (
+                                            <Badge variant="outline" className="ml-2 text-xs">Editado</Badge>
+                                          )}
+                                        </span>
+                                      ) : problem.estimatedCost ? (
+                                        <span className="text-sm font-medium text-emerald-700">
+                                          Estimativa: {formatPriceRange(problem.estimatedCost.min, problem.estimatedCost.max)}
+                                        </span>
+                                      ) : (
+                                        <span className="text-sm text-neutral-500">Sem estimativa de custo</span>
                                       )}
-                                    </span>
-                                  ) : problem.estimatedCost ? (
-                                    <span className="text-sm font-medium text-emerald-700">
-                                      Custo estimado: {formatPriceRange(
-                                        problem.estimatedCost.min * (problem.quantity || 1),
-                                        problem.estimatedCost.max * (problem.quantity || 1)
-                                      )}
-                                    </span>
-                                  ) : (
-                                    <span className="text-sm text-neutral-500">
-                                      Sem estimativa de custo
-                                    </span>
+                                    </div>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleEditCost(problem)}
+                                    >
+                                      <Settings2 className="h-3 w-3 mr-1" />
+                                      {problem.manual_cost ? 'Editar' : 'Adicionar'} Custo
+                                    </Button>
+                                  </div>
+                                  {problem.cost_notes && (
+                                    <p className="text-xs text-neutral-600 mt-2 italic">Obs: {problem.cost_notes}</p>
                                   )}
                                 </div>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleEditCost(problem)}
-                                  className="text-neutral-600 hover:text-neutral-900"
-                                >
-                                  <Settings2 className="h-3 w-3 mr-1" />
-                                  Editar
-                                </Button>
                               </div>
-                              {problem.estimatedCost && !problem.manual_cost && (
-                                <p className="text-xs text-neutral-500 mt-1 ml-6">
-                                  {problem.estimatedCost.service_name} ({problem.estimatedCost.unit})
-                                  {(problem.quantity || 1) > 1 && ` x ${problem.quantity}`}
-                                </p>
-                              )}
-                              {problem.cost_notes && (
-                                <p className="text-xs text-neutral-500 mt-1 ml-6 italic">
-                                  {problem.cost_notes}
-                                </p>
-                              )}
                             </div>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-sm text-success-600 flex items-center gap-2">
-                        <CheckCircle2 className="h-4 w-4" />
-                        Nenhum problema detectado
-                      </p>
-                    )}
-                  </div>
+                          ))
+                        ) : null}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )
             })}
-
-            {/* Photo Registration Checkbox */}
-            <div className="flex items-center gap-2 text-neutral-600 pt-2">
-              <div className="w-4 h-4 border-2 border-neutral-400 rounded" />
-              <span className="text-sm font-medium">REGISTRO FOTOGRÁFICO</span>
-            </div>
           </CardContent>
         </Card>
       ))}

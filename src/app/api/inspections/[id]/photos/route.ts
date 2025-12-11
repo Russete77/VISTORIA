@@ -5,6 +5,7 @@ import { uploadInspectionPhoto } from '@/services/storage'
 import { analyzePhoto } from '@/services/ai-analysis'
 import { estimateProblemCosts } from '@/services/cost-estimation'
 import { quickRateLimit } from '@/lib/api-utils'
+import { saveTrainingData } from '@/services/ai-training-collector'
 
 /**
  * Inspection Photos API - VistorIA Pro
@@ -124,6 +125,24 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         { error: 'Failed to save photo' },
         { status: 500 }
       )
+    }
+
+    // Save training data for AI model improvement (passive collection)
+    if (aiAnalysis) {
+      try {
+        await saveTrainingData({
+          photoId: photo.id,
+          photoUrl,
+          claudeAnalysis: aiAnalysis,
+          roomName,
+          roomCategory,
+          fromVideo: false,
+        })
+        console.log('[AI Training] Training data saved for photo:', photo.id)
+      } catch (trainingError) {
+        console.warn('[AI Training] Failed to save training data:', trainingError)
+        // Don't fail the request - photo was saved successfully
+      }
     }
 
     // If AI detected problems, save them to photo_problems table

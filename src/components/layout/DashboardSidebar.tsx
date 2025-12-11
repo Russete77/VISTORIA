@@ -21,13 +21,13 @@ import Image from 'next/image'
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: Home },
-  { name: 'Imóveis', href: '/dashboard/properties', icon: Building2 },
-  { name: 'Reservas', href: '/dashboard/bookings', icon: Calendar },
-  { name: 'Vistorias', href: '/dashboard/inspections', icon: ClipboardCheck },
+  { name: 'Agenda', href: '/dashboard/bookings', icon: Calendar },
   { name: 'Comparações', href: '/dashboard/comparisons', icon: GitCompare },
+  { name: 'Configurações', href: '/dashboard/settings', icon: Settings },
   { name: 'Equipe', href: '/dashboard/team', icon: Users },
   { name: 'Financeiro', href: '/dashboard/billing', icon: DollarSign },
-  { name: 'Configurações', href: '/dashboard/settings', icon: Settings },
+  { name: 'Imóveis', href: '/dashboard/properties', icon: Building2 },
+  { name: 'Vistorias', href: '/dashboard/inspections', icon: ClipboardCheck },
 ]
 
 interface DashboardSidebarProps {

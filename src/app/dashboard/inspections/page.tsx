@@ -113,69 +113,72 @@ export default function InspectionsPage() {
       </div>
 
       {/* Stats Overview */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <Card className="p-4 border-neutral-200 bg-white">
-          <p className="text-sm font-medium text-neutral-600">Total</p>
-          <p className="mt-2 text-2xl font-bold text-neutral-900">{stats.total}</p>
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
+        <Card className="p-3 sm:p-4 border-neutral-200 bg-white">
+          <p className="text-xs sm:text-sm font-medium text-neutral-600">Total</p>
+          <p className="mt-1 sm:mt-2 text-xl sm:text-2xl font-bold text-neutral-900">{stats.total}</p>
         </Card>
-        <Card className="p-4 border-neutral-200 bg-white">
-          <p className="text-sm font-medium text-neutral-600">Rascunhos</p>
-          <p className="mt-2 text-2xl font-bold text-gray-700">{stats.draft}</p>
+        <Card className="p-3 sm:p-4 border-neutral-200 bg-white">
+          <p className="text-xs sm:text-sm font-medium text-neutral-600">Rascunhos</p>
+          <p className="mt-1 sm:mt-2 text-xl sm:text-2xl font-bold text-gray-700">{stats.draft}</p>
         </Card>
-        <Card className="p-4 border-neutral-200 bg-white">
-          <p className="text-sm font-medium text-neutral-600">Em Andamento</p>
-          <p className="mt-2 text-2xl font-bold text-blue-700">{stats.in_progress}</p>
+        <Card className="p-3 sm:p-4 border-neutral-200 bg-white">
+          <p className="text-xs sm:text-sm font-medium text-neutral-600">Em Andamento</p>
+          <p className="mt-1 sm:mt-2 text-xl sm:text-2xl font-bold text-blue-700">{stats.in_progress}</p>
         </Card>
-        <Card className="p-4 border-neutral-200 bg-white">
-          <p className="text-sm font-medium text-neutral-600">Concluídas</p>
-          <p className="mt-2 text-2xl font-bold text-green-700">{stats.completed}</p>
+        <Card className="p-3 sm:p-4 border-neutral-200 bg-white">
+          <p className="text-xs sm:text-sm font-medium text-neutral-600">Concluídas</p>
+          <p className="mt-1 sm:mt-2 text-xl sm:text-2xl font-bold text-green-700">{stats.completed}</p>
         </Card>
-        <Card className="p-4 border-neutral-200 bg-white">
-          <p className="text-sm font-medium text-neutral-600">Assinadas</p>
-          <p className="mt-2 text-2xl font-bold text-purple-700">{stats.signed}</p>
+        <Card className="col-span-2 lg:col-span-1 p-3 sm:p-4 border-neutral-200 bg-white">
+          <p className="text-xs sm:text-sm font-medium text-neutral-600">Assinadas</p>
+          <p className="mt-1 sm:mt-2 text-xl sm:text-2xl font-bold text-purple-700">{stats.signed}</p>
         </Card>
       </div>
 
       {/* Filters Bar */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-3">
         {/* Search */}
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" />
           <Input
             type="search"
-            placeholder="Buscar por nome de inspetor, inquilino ou proprietário..."
+            placeholder="Buscar por nome..."
             className="pl-10"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
 
-        {/* Status Filter */}
-        <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as InspectionStatus | 'all')}>
-          <SelectTrigger className="w-full sm:w-[180px]">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os Status</SelectItem>
-            <SelectItem value="draft">Rascunho</SelectItem>
-            <SelectItem value="in_progress">Em Andamento</SelectItem>
-            <SelectItem value="completed">Concluída</SelectItem>
-            <SelectItem value="signed">Assinada</SelectItem>
-          </SelectContent>
-        </Select>
+        {/* Filters Row */}
+        <div className="flex gap-3">
+          {/* Status Filter */}
+          <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as InspectionStatus | 'all')}>
+            <SelectTrigger className="flex-1 sm:w-[180px] sm:flex-none">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os Status</SelectItem>
+              <SelectItem value="draft">Rascunho</SelectItem>
+              <SelectItem value="in_progress">Em Andamento</SelectItem>
+              <SelectItem value="completed">Concluída</SelectItem>
+              <SelectItem value="signed">Assinada</SelectItem>
+            </SelectContent>
+          </Select>
 
-        {/* Type Filter */}
-        <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as InspectionType | 'all')}>
-          <SelectTrigger className="w-full sm:w-[180px]">
-            <SelectValue placeholder="Tipo" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os Tipos</SelectItem>
-            <SelectItem value="move_in">Entrada</SelectItem>
-            <SelectItem value="move_out">Saída</SelectItem>
-            <SelectItem value="periodic">Periódica</SelectItem>
-          </SelectContent>
-        </Select>
+          {/* Type Filter */}
+          <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as InspectionType | 'all')}>
+            <SelectTrigger className="flex-1 sm:w-[180px] sm:flex-none">
+              <SelectValue placeholder="Tipo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os Tipos</SelectItem>
+              <SelectItem value="move_in">Entrada</SelectItem>
+              <SelectItem value="move_out">Saída</SelectItem>
+              <SelectItem value="periodic">Periódica</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Loading State */}

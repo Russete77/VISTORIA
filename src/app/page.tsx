@@ -28,9 +28,103 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion'
+import { MobileNav } from '@/components/mobile-nav'
+
+// JSON-LD Schema para SEO
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': 'https://vistoria-pro.com.br/#organization',
+      name: 'VistorIA Pro',
+      url: 'https://vistoria-pro.com.br',
+      logo: {
+        '@type': 'ImageObject',
+        url: 'https://vistoria-pro.com.br/logo.png',
+      },
+      description: 'Plataforma líder em vistorias imobiliárias com inteligência artificial',
+      sameAs: [
+        'https://twitter.com/vistoriapro',
+        'https://linkedin.com/company/vistoriapro',
+      ],
+    },
+    {
+      '@type': 'SoftwareApplication',
+      name: 'VistorIA Pro',
+      applicationCategory: 'BusinessApplication',
+      operatingSystem: 'Web',
+      offers: {
+        '@type': 'Offer',
+        price: '0',
+        priceCurrency: 'BRL',
+        description: '1 vistoria grátis para experimentar',
+      },
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: '4.9',
+        ratingCount: '150',
+        bestRating: '5',
+        worstRating: '1',
+      },
+      featureList: [
+        'Análise de fotos com IA Claude 4',
+        'Detecção automática de problemas',
+        'Laudo PDF profissional',
+        'Comparação entrada/saída',
+        'Estimativa de custos de reparo',
+        'Ditado por voz',
+      ],
+    },
+    {
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'Como funciona a análise com IA?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'A VistorIA Pro utiliza o Claude 4, a IA mais avançada da Anthropic, para analisar cada foto enviada. O sistema identifica automaticamente problemas como rachaduras, manchas, danos em pisos, paredes e móveis, classificando a gravidade e sugerindo ações corretivas.',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'Posso usar no celular?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Sim! A VistorIA Pro é 100% responsiva e funciona perfeitamente em smartphones, tablets e desktops. Você pode tirar fotos diretamente do celular e criar laudos em qualquer lugar.',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'Os laudos são juridicamente válidos?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Sim. Os laudos gerados incluem todas as informações necessárias: fotos com data e hora, descrição detalhada dos problemas, e espaço para assinaturas digitais de todas as partes envolvidas.',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'Quanto tempo leva para gerar um laudo?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Após fazer o upload das fotos, a análise com IA leva de 30 segundos a 2 minutos, dependendo da quantidade de imagens. O laudo em PDF é gerado instantaneamente após a revisão final.',
+          },
+        },
+      ],
+    },
+  ],
+}
 
 export default function HomePage() {
   return (
+    <>
+      {/* JSON-LD Schema */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      
     <div className="flex min-h-screen flex-col">
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b border-neutral-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
@@ -41,7 +135,7 @@ export default function HomePage() {
             </div>
             <span className="text-lg font-bold text-neutral-900">VistorIA Pro</span>
           </Link>
-          <nav className="ml-auto flex items-center gap-3">
+          <nav className="ml-auto hidden md:flex items-center gap-3">
             <SignedOut>
               <SignInButton mode="modal">
                 <Button variant="ghost" size="sm">Entrar</Button>
@@ -60,6 +154,7 @@ export default function HomePage() {
               <UserButton afterSignOutUrl="/" />
             </SignedIn>
           </nav>
+          <MobileNav />
         </div>
       </header>
 
@@ -680,13 +775,8 @@ export default function HomePage() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="/demo" className="hover:text-primary-600">
-                    Demonstração
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/changelog" className="hover:text-primary-600">
-                    Atualizações
+                  <Link href="/dashboard" className="hover:text-primary-600">
+                    Dashboard
                   </Link>
                 </li>
               </ul>
@@ -694,27 +784,17 @@ export default function HomePage() {
 
             {/* Company */}
             <div>
-              <h3 className="font-semibold text-neutral-900 mb-4">Empresa</h3>
+              <h3 className="font-semibold text-neutral-900 mb-4">Suporte</h3>
               <ul className="space-y-3 text-sm text-neutral-600">
                 <li>
-                  <Link href="/about" className="hover:text-primary-600">
-                    Sobre Nós
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/blog" className="hover:text-primary-600">
-                    Blog
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/careers" className="hover:text-primary-600">
-                    Carreiras
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/contact" className="hover:text-primary-600">
+                  <a href="mailto:contato@vistoria-pro.com.br" className="hover:text-primary-600">
                     Contato
-                  </Link>
+                  </a>
+                </li>
+                <li>
+                  <a href="mailto:suporte@vistoria-pro.com.br" className="hover:text-primary-600">
+                    Suporte
+                  </a>
                 </li>
               </ul>
             </div>
@@ -724,23 +804,23 @@ export default function HomePage() {
               <h3 className="font-semibold text-neutral-900 mb-4">Legal</h3>
               <ul className="space-y-3 text-sm text-neutral-600">
                 <li>
-                  <Link href="/privacy" className="hover:text-primary-600">
+                  <Link href="/privacidade" className="hover:text-primary-600">
                     Privacidade
                   </Link>
                 </li>
                 <li>
-                  <Link href="/terms" className="hover:text-primary-600">
+                  <Link href="/termos" className="hover:text-primary-600">
                     Termos de Uso
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/cookies" className="hover:text-primary-600">
-                    Cookies
                   </Link>
                 </li>
                 <li>
                   <Link href="/lgpd" className="hover:text-primary-600">
                     LGPD
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/cookies" className="hover:text-primary-600">
+                    Cookies
                   </Link>
                 </li>
               </ul>
@@ -762,5 +842,6 @@ export default function HomePage() {
         </div>
       </footer>
     </div>
+    </>
   )
 }

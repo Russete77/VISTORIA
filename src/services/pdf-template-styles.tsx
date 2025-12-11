@@ -298,6 +298,51 @@ export function generateStylesFromTemplate(config: PDFTemplateConfig = DEFAULT_T
       opacity: 0.3,
       transform: 'rotate(-45deg)',
     },
+
+    // Cost styles
+    problemCost: {
+      fontSize: fonts.size.body,
+      fontFamily: fonts.title,
+      color: colors.danger,
+      marginTop: 4,
+    },
+    roomSubtotal: {
+      fontSize: fonts.size.body + 1,
+      fontFamily: fonts.title,
+      color: colors.text,
+      marginTop: 12,
+      paddingTop: 8,
+      borderTop: `1pt solid ${colors.secondary}`,
+      textAlign: 'right',
+    },
+    costSummaryBox: {
+      backgroundColor: colors.secondary,
+      padding: 15,
+      borderRadius: 8,
+      marginTop: 20,
+      marginBottom: 20,
+    },
+    costSummaryTitle: {
+      fontSize: fonts.size.subtitle,
+      fontFamily: fonts.title,
+      color: colors.danger,
+      marginBottom: 10,
+      textAlign: 'center',
+    },
+    costSummaryTotal: {
+      fontSize: fonts.size.subtitle + 4,
+      fontFamily: fonts.title,
+      color: colors.danger,
+      textAlign: 'center',
+      marginBottom: 10,
+    },
+    costDisclaimer: {
+      fontSize: fonts.size.small,
+      color: colors.textLight,
+      textAlign: 'center',
+      marginTop: 8,
+      fontStyle: 'italic',
+    },
   })
 }
 

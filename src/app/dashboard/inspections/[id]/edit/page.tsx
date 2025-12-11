@@ -303,7 +303,7 @@ export default function EditInspectionPage() {
               <div className="space-y-2">
                 <Label htmlFor="scheduled_date">
                   <CalendarIcon className="h-4 w-4 inline mr-2" />
-                  Data Agendada
+                  Data e Hora Agendada
                 </Label>
                 <Input
                   id="scheduled_date"
