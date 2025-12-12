@@ -450,6 +450,80 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         .eq('id', photoId)
     }
 
+    // **SAVE TO AI TRAINING DATA** for model improvement
+    // This is critical for training our AI models
+    if (ai_summary !== undefined || problems !== undefined) {
+      try {
+        // Get the original AI analysis from training data
+        const { data: existingTrainingData } = await supabase
+          .from('ai_training_data')
+          .select('*')
+          .eq('photo_id', photoId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single()
+
+        if (existingTrainingData) {
+          // Update existing training data with user correction
+          const userCorrection = {
+            ai_summary: ai_summary || photo.ai_summary,
+            problems: problems || [],
+            edited_at: new Date().toISOString(),
+          }
+
+          await supabase
+            .from('ai_training_data')
+            .update({
+              user_correction: userCorrection,
+              is_correct: false, // User edited = AI was not 100% correct
+              corrected_at: new Date().toISOString(),
+            })
+            .eq('id', existingTrainingData.id)
+
+          console.log('[AI Training] Saved user correction for training:', {
+            photoId,
+            trainingDataId: existingTrainingData.id,
+            hasNewSummary: ai_summary !== undefined,
+            problemsCount: problems?.length || 0,
+          })
+        } else {
+          // No existing training data - create new entry with correction
+          const photoUrl = photo.storage_path 
+            ? supabase.storage.from('inspection-photos').getPublicUrl(photo.storage_path).data.publicUrl 
+            : ''
+
+          await supabase
+            .from('ai_training_data')
+            .insert({
+              photo_id: photoId,
+              photo_url: photoUrl,
+              claude_analysis: {
+                hasProblems: photo.ai_has_problems,
+                summary: photo.ai_summary,
+                confidence: photo.ai_confidence,
+              },
+              claude_model: 'claude-sonnet-4-20250514',
+              user_correction: {
+                ai_summary: ai_summary || photo.ai_summary,
+                problems: problems || [],
+                edited_at: new Date().toISOString(),
+              },
+              is_correct: false,
+              room_name: photo.room_name,
+              room_category: photo.room_category,
+              corrected_at: new Date().toISOString(),
+            })
+
+          console.log('[AI Training] Created new training data with user correction:', {
+            photoId,
+          })
+        }
+      } catch (trainingError) {
+        console.warn('[AI Training] Failed to save correction (non-blocking):', trainingError)
+        // Don't fail the request - photo was saved successfully
+      }
+    }
+
     // Fetch updated photo with problems
     const { data: completePhoto } = await supabase
       .from('inspection_photos')

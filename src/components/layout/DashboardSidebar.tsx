@@ -12,6 +12,7 @@ import {
   LogOut,
   GitCompare,
   Calendar,
+  Shield,
 } from 'lucide-react'
 import { useClerk, useUser } from '@clerk/nextjs'
 import { cn } from '@/lib/utils'
@@ -101,8 +102,24 @@ export function DashboardSidebar({ className }: DashboardSidebarProps) {
                 <Icon className="h-5 w-5" aria-hidden="true" />
                 <span>{item.name}</span>
               </Link>
-            )
-          })}
+              )
+            })}
+          
+          {/* Admin Link - only for admins */}
+          {(dbUser?.role === 'admin' || dbUser?.role === 'super_admin') && (
+            <Link
+              href="/dashboard/admin"
+              className={cn(
+                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 mt-4 border-t border-neutral-200 pt-4',
+                pathname?.startsWith('/dashboard/admin')
+                  ? 'bg-purple-100 text-purple-700'
+                  : 'text-purple-600 hover:bg-purple-50'
+              )}
+            >
+              <Shield className="h-5 w-5" aria-hidden="true" />
+              <span>Admin</span>
+            </Link>
+          )}
         </nav>
 
         {/* User Section */}

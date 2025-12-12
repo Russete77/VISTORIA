@@ -69,6 +69,8 @@ export interface UserPreferences {
   weekly_reports?: boolean
 }
 
+export type UserRole = 'user' | 'admin' | 'super_admin'
+
 export interface User {
   id: string
   clerk_id: string
@@ -78,6 +80,7 @@ export interface User {
   full_name: string | null
   image_url: string | null
   tier: UserTier
+  role: UserRole
   credits: number
   total_vistorias: number
   preferences?: UserPreferences

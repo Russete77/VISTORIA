@@ -28,6 +28,7 @@ import { IssueSeverity } from '@/components/vistoria/IssueSeverity'
 import { PhotoLightbox } from '@/components/ui/PhotoLightbox'
 import { TemplateSelector } from '@/components/templates'
 import { AIFeedbackButton } from '@/components/feedback/AIFeedbackButton'
+import { AITrainingBanner } from '@/components/feedback/AITrainingBanner'
 import { CostEditorDialog } from '@/components/costs/CostEditorDialog'
 import { toast } from 'sonner'
 
@@ -477,6 +478,9 @@ export default function InspectionReviewPage({ params }: InspectionReviewPagePro
           </Button>
         </div>
       </div>
+
+      {/* AI Training Banner - Educational guidance */}
+      <AITrainingBanner className="mb-2" />
 
       {/* Inspection Info */}
       <Card>
